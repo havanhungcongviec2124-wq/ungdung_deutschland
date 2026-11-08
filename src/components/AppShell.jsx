@@ -5,6 +5,7 @@ import {
   HardDrive,
   Languages,
   Menu,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
@@ -31,6 +32,7 @@ export default function AppShell({
   activeFolder,
   onSelectFolder,
   onDeleteFolder,
+  onRenameFolder,
   onCreateFolder,
   onUpdateApp,
   updatingApp,
@@ -101,6 +103,7 @@ export default function AppShell({
               onOpenChange={(open) => setOpenFolderId(open ? folder.id : "")}
               onSelect={() => onSelectFolder(folder.id)}
               onDelete={() => onDeleteFolder(folder.id)}
+              onRename={() => onRenameFolder(folder.id)}
             />
           ))}
           {!folders.length && <p className="empty-small">Chưa có thư mục</p>}
@@ -169,7 +172,16 @@ export default function AppShell({
   );
 }
 
-function FolderListItem({ folder, count, selected, open, onOpenChange, onSelect, onDelete }) {
+function FolderListItem({
+  folder,
+  count,
+  selected,
+  open,
+  onOpenChange,
+  onSelect,
+  onDelete,
+  onRename,
+}) {
   const touchStart = useRef(null);
   const longPressTimer = useRef(null);
   const suppressClick = useRef(false);
@@ -241,15 +253,26 @@ function FolderListItem({ folder, count, selected, open, onOpenChange, onSelect,
 
   return (
     <div className={`folder-swipe-row ${open ? "folder-swipe-open" : ""}`}>
-      <button
-        className="folder-delete-action"
-        aria-label={`Xóa thư mục ${folder.name}`}
-        title={`Xóa thư mục ${folder.name}`}
-        onClick={onDelete}
-        tabIndex={open ? 0 : -1}
-      >
-        <Trash2 size={17} />
-      </button>
+      <div className="folder-actions">
+        <button
+          className="folder-rename-action"
+          aria-label={`Đổi tên thư mục ${folder.name}`}
+          title={`Đổi tên thư mục ${folder.name}`}
+          onClick={onRename}
+          tabIndex={open ? 0 : -1}
+        >
+          <Pencil size={17} />
+        </button>
+        <button
+          className="folder-delete-action"
+          aria-label={`Xóa thư mục ${folder.name}`}
+          title={`Xóa thư mục ${folder.name}`}
+          onClick={onDelete}
+          tabIndex={open ? 0 : -1}
+        >
+          <Trash2 size={17} />
+        </button>
+      </div>
       <button
         className={`folder-item ${selected ? "selected" : ""}`}
         onTouchStart={handleTouchStart}

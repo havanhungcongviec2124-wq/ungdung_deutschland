@@ -63,6 +63,8 @@ function App() {
   const [shareUrl, setShareUrl] = useState("");
   const [sharedFolder, setSharedFolder] = useState(null);
   const [folderToDelete, setFolderToDelete] = useState(null);
+  const [folderToRename, setFolderToRename] = useState(null);
+  const [renamedFolderDraft, setRenamedFolderDraft] = useState("");
 
   const [editingCardId, setEditingCardId] = useState(null);
   const [editingCardDraft, setEditingCardDraft] = useState(null);
@@ -418,6 +420,32 @@ function App() {
     if (!folder) return;
     setFolderToDelete(folder);
     setModal("delete-folder-confirm");
+  }
+
+  function requestRenameFolder(folderId) {
+    const folder = folders.find((item) => item.id === folderId);
+    if (!folder) return;
+    setFolderToRename(folder);
+    setRenamedFolderDraft(folder.name);
+    setModal("rename-folder");
+  }
+
+  function renameFolder(event) {
+    event.preventDefault();
+    const name = renamedFolderDraft.trim();
+    if (!folderToRename || !name) return;
+    if (name.length > 100) return toast("Tên thư mục không được dài quá 100 ký tự.");
+
+    setCanPersist(true);
+    setFolders((previous) =>
+      previous.map((folder) =>
+        folder.id === folderToRename.id ? { ...folder, name } : folder
+      )
+    );
+    setFolderToRename(null);
+    setRenamedFolderDraft("");
+    setModal("");
+    toast(`Đã đổi tên thư mục thành "${name}".`);
   }
 
   function deleteFolder() {
@@ -776,6 +804,7 @@ function App() {
         cards={cards}
         activeFolder={activeFolder}
         onDeleteFolder={requestDeleteFolder}
+        onRenameFolder={requestRenameFolder}
         onSelectFolder={(id) => {
           setActiveFolder(id);
           setView("cards");
@@ -983,6 +1012,50 @@ function App() {
             <button className="btn-primary full" type="submit">
               <FolderPlus size={17} /> Tạo thư mục
             </button>
+          </form>
+        </Modal>
+      )}
+
+      {modal === "rename-folder" && folderToRename && (
+        <Modal
+          title="Đổi tên thư mục"
+          onClose={() => {
+            setModal("");
+            setFolderToRename(null);
+            setRenamedFolderDraft("");
+          }}
+        >
+          <form className="modal-form" onSubmit={renameFolder}>
+            <label>
+              Tên thư mục
+              <input
+                autoFocus
+                maxLength={100}
+                value={renamedFolderDraft}
+                onChange={(event) => setRenamedFolderDraft(event.target.value)}
+                required
+              />
+            </label>
+            <div className="delete-folder-actions">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => {
+                  setModal("");
+                  setFolderToRename(null);
+                  setRenamedFolderDraft("");
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                className="btn-primary"
+                type="submit"
+                disabled={!renamedFolderDraft.trim()}
+              >
+                Lưu tên
+              </button>
+            </div>
           </form>
         </Modal>
       )}
