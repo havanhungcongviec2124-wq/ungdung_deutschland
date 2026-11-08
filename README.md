@@ -1,6 +1,7 @@
 # WortKarte — Flashcard học từ vựng
 
-Ứng dụng React + Vite + Tailwind CSS để tạo và ôn tập flashcard. Thư mục, thẻ từ và tiến độ học được lưu ngay trong trình duyệt trên thiết bị; không cần tài khoản hay máy chủ.
+Ứng dụng React + Vite + Tailwind CSS để tạo và ôn tập flashcard. Bắt đầu với thư viện trống; thư mục, thẻ từ và tiến độ học được lưu ngay trong trình duyệt trên thiết bị, không cần tài khoản hay máy chủ.
+Khi mở bản mới, ứng dụng tự bỏ các thẻ mẫu mặc định của **Tiếng Đức A2** đã lưu từ phiên bản cũ; các thẻ do bạn tự thêm vẫn được giữ lại.
 
 ## 1. Yêu cầu
 - Node.js 20.19+ hoặc 22.12+

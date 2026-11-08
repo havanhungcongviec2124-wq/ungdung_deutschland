@@ -10,14 +10,8 @@ import { createWorker } from "tesseract.js";
 
 const colors = ["#6d5dfc", "#13a88a", "#f59e0b", "#ec6b8b", "#3987dc"];
 const STORAGE_KEY = "wortkarte.local.v1";
-const sampleFolders = [{ id: "sample-german", name: "Tiếng Đức A2", color: "#6d5dfc" }];
-const sampleCards = [
-  { id: "s1", folder_id: "sample-german", front: "der Fehler", plural: "die Fehler", back: "Lỗi, sai sót", note: "" },
-  { id: "s2", folder_id: "sample-german", front: "die Prüfung", plural: "die Prüfungen", back: "Kỳ thi, bài kiểm tra", note: "" },
-  { id: "s3", folder_id: "sample-german", front: "das Geschenk", plural: "die Geschenke", back: "Món quà", note: "" },
-  { id: "s4", folder_id: "sample-german", front: "stattfinden", plural: "", back: "Diễn ra, được tổ chức", note: "" },
-  { id: "s5", folder_id: "sample-german", front: "wahrscheinlich", plural: "", back: "Có lẽ, có khả năng", note: "" }
-];
+const sampleFolderId = "sample-german";
+const sampleCardIds = new Set(["s1", "s2", "s3", "s4", "s5"]);
 
 const shuffle = items => [...items].sort(() => Math.random() - 0.5);
 const quizAnswer = (card, mode) => mode === "vi-to-de" ? card.front?.trim() : card.back?.trim();
@@ -68,28 +62,54 @@ function createQuizOptions(card, cards, mode) {
 function readLocalData() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { folders: sampleFolders, cards: sampleCards, activeFolder: "sample-german", reviewHistory: {}, dailyGoals: {} };
+    if (!saved) return { folders: [], cards: [], activeFolder: "", reviewHistory: {}, dailyGoals: {} };
     const data = JSON.parse(saved);
     if (!Array.isArray(data.folders) || !Array.isArray(data.cards)) {
       throw new Error("Dữ liệu thư mục hoặc thẻ không đúng định dạng.");
     }
+    const cards = data.cards.filter(card => !sampleCardIds.has(card.id));
+    const retainedSampleFolderCards = cards.some(card => card.folder_id === sampleFolderId);
+    const previousSampleFolder = data.folders.find(folder => folder.id === sampleFolderId);
+    const folders = data.folders.filter(folder => folder.id !== sampleFolderId);
+    if (retainedSampleFolderCards) {
+      folders.push(previousSampleFolder
+        ? { ...previousSampleFolder, name: "Từ vựng của tôi" }
+        : { id: sampleFolderId, name: "Từ vựng của tôi", color: colors[0] });
+    }
+    const reviewHistory = data.reviewHistory && typeof data.reviewHistory === "object" ? { ...data.reviewHistory } : {};
+    for (const [day, foldersForDay] of Object.entries(reviewHistory)) {
+      if (!foldersForDay || typeof foldersForDay !== "object") continue;
+      const sampleFolderHistory = foldersForDay[sampleFolderId];
+      if (sampleFolderHistory?.results) {
+        const results = Object.fromEntries(
+          Object.entries(sampleFolderHistory.results).filter(([id]) => !sampleCardIds.has(id))
+        );
+        reviewHistory[day] = {
+          ...foldersForDay,
+          [sampleFolderId]: { ...sampleFolderHistory, results }
+        };
+      }
+    }
+    const activeFolder = folders.some(folder => folder.id === data.activeFolder)
+      ? data.activeFolder
+      : folders[0]?.id || "";
     return {
-      folders: data.folders,
-      cards: data.cards,
-      reviewHistory: data.reviewHistory && typeof data.reviewHistory === "object" ? data.reviewHistory : {},
-      dailyGoals: data.dailyGoals && typeof data.dailyGoals === "object" ? data.dailyGoals : {},
-      activeFolder: data.folders.some(folder => folder.id === data.activeFolder)
-        ? data.activeFolder
-        : data.folders[0]?.id || ""
+      folders,
+      cards,
+      reviewHistory,
+      dailyGoals: data.dailyGoals && typeof data.dailyGoals === "object"
+        ? Object.fromEntries(Object.entries(data.dailyGoals).filter(([id]) => id !== sampleFolderId || retainedSampleFolderCards))
+        : {},
+      activeFolder
     };
   } catch (error) {
     console.error("Không thể đọc dữ liệu WortKarte trên thiết bị:", error);
     return {
-      folders: sampleFolders,
-      cards: sampleCards,
+      folders: [],
+      cards: [],
       reviewHistory: {},
       dailyGoals: {},
-      activeFolder: "sample-german",
+      activeFolder: "",
       error: "Không thể đọc dữ liệu đã lưu trên thiết bị. Dữ liệu cũ được giữ nguyên."
     };
   }
@@ -234,7 +254,27 @@ function App() {
     setFolderName(""); setModal(""); toast("Đã tạo thư mục.");
   }
 
+  function openCardForm() {
+    if (!folders.length) {
+      setModal("folder");
+      return toast("Tạo thư mục trước khi thêm thẻ từ.");
+    }
+    setModal("card");
+  }
+
+  function openImportView() {
+    if (!folders.length) {
+      setModal("folder");
+      return toast("Tạo thư mục trước khi nhập thẻ từ.");
+    }
+    setView("import");
+  }
+
   function saveCard(row, folderId = activeFolder) {
+    if (!folderId) {
+      toast("Tạo thư mục trước khi lưu thẻ từ.");
+      return false;
+    }
     if (!row.front?.trim() || !row.back?.trim()) {
       toast("Vui lòng nhập từ vựng và nghĩa.");
       return false;
@@ -364,6 +404,10 @@ function App() {
   }
 
   function importText() {
+    if (!folders.length) {
+      setModal("folder");
+      return toast("Tạo thư mục trước khi nhập thẻ từ.");
+    }
     const rows = parseVocabularyText(bulkText);
     if (!rows.length) return toast("Không nhận diện được dữ liệu. Hãy dùng dấu | hoặc tab để ngăn cột.");
     setBulkRows(rows); setBulkFolder(activeFolder); setView("import-preview");
@@ -371,6 +415,10 @@ function App() {
 
   async function importFile(file) {
     if (!file) return;
+    if (!folders.length) {
+      setModal("folder");
+      return toast("Tạo thư mục trước khi nhập thẻ từ.");
+    }
     const text = await file.text();
     setBulkText(text);
     const rows = parseVocabularyText(text);
@@ -381,6 +429,10 @@ function App() {
 
   async function importImage(file) {
     if (!file) return;
+    if (!folders.length) {
+      setModal("folder");
+      return toast("Tạo thư mục trước khi nhập thẻ từ.");
+    }
     setLoading(true); toast("Đang nhận diện chữ trong ảnh...");
     let worker;
     try {
@@ -469,9 +521,9 @@ function App() {
         </header>
 
         <div className="content-wrap">
-          {view === "home" && <Home folders={folders} cards={cards} known={totalKnown} onStudy={() => openStudySetup()} onCreate={() => setModal("card")} onImport={() => setView("import")} onFolder={id => {setActiveFolder(id);setView("cards");}}/>}
+          {view === "home" && <Home folders={folders} cards={cards} known={totalKnown} onStudy={() => openStudySetup()} onCreate={openCardForm} onImport={openImportView} onFolder={id => {setActiveFolder(id);setView("cards");}}/>}
           {view === "cards" && <section>
-            <div className="page-heading"><div><div className="eyebrow">THƯ VIỆN TỪ VỰNG</div><h1>{currentFolder?.name || "Tất cả thẻ từ"}</h1><p>Quản lý và ôn tập những từ vựng của bạn.</p></div><div className="heading-actions"><button className="btn-secondary" onClick={() => setView("folder-overview")}><Layers3 size={17}/> Tổng các từ vựng</button><button className="btn-secondary" onClick={() => setView("import")}><Upload size={17}/> Nhập hàng loạt</button><button className="btn-primary" onClick={() => setModal("card")}><Plus size={18}/> Tạo thẻ mới</button></div></div>
+            <div className="page-heading"><div><div className="eyebrow">THƯ VIỆN TỪ VỰNG</div><h1>{currentFolder?.name || "Tất cả thẻ từ"}</h1><p>Quản lý và ôn tập những từ vựng của bạn.</p></div><div className="heading-actions"><button className="btn-secondary" onClick={() => setView("folder-overview")}><Layers3 size={17}/> Tổng các từ vựng</button><button className="btn-secondary" onClick={openImportView}><Upload size={17}/> Nhập hàng loạt</button><button className="btn-primary" onClick={openCardForm}><Plus size={18}/> Tạo thẻ mới</button></div></div>
             <div className="daily-review-panel">
               <div className="daily-review-heading"><div><div className="eyebrow">THỐNG KÊ HÔM NAY</div><h2>Ôn tập mỗi ngày</h2><p>{dailyStats.complete ? "Bạn đã hoàn thành mục tiêu hôm nay." : "Ôn thẻ mới trong thư mục để hoàn thành mục tiêu."}</p></div><label className="daily-goal-control">Mục tiêu / ngày<input type="number" min="1" max="500" value={dailyGoal} onChange={e=>setFolderDailyGoal(e.target.value)}/><span>thẻ</span></label></div>
               <div className="daily-stats-grid"><div><span>Đã ôn hôm nay</span><strong>{dailyStats.reviewed} / {dailyStats.required}</strong></div><div><span>Đúng / cần ôn lại</span><strong><span className="daily-correct">{dailyStats.correct}</span> / <span className="daily-incorrect">{dailyStats.incorrect}</span></strong></div><div><span>Chuỗi hoàn thành</span><strong>{studyStreak} ngày</strong></div></div>
@@ -479,13 +531,13 @@ function App() {
               <button className="btn-primary daily-review-button" onClick={openDailyReview} disabled={!folderCards.length || dailyStats.complete}><Brain size={17}/>{dailyStats.complete ? "Đã hoàn thành hôm nay" : `Ôn ${Math.max(0,dailyStats.required-dailyStats.reviewed)} thẻ hôm nay`}</button>
             </div>
             <div className="toolbar"><div className="search-box"><Search size={17}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm từ vựng hoặc nghĩa..."/></div><span className="muted">{filteredCards.length} thẻ từ</span><button className="btn-study" onClick={() => openStudySetup(filteredCards)}><Brain size={17}/> Kiểm tra</button></div>
-            {filteredCards.length ? <div className="vocab-grid">{filteredCards.map(card => <article className="vocab-card" key={card.id}><div className="vocab-top"><span className="vocab-language">DEUTSCH</span><button className="more-button" onClick={() => deleteCard(card)} title="Xóa thẻ"><Trash2 size={16}/></button></div><div className="vocab-front-row"><div className="vocab-front">{card.front}</div><button className="voice-button" onClick={()=>speakGerman(card.front)} title={`Phát âm ${card.front}`} aria-label={`Phát âm ${card.front}`}><Volume2 size={18}/></button></div><div className="vocab-bottom"><span className="vocab-hint">Nhấn khi ôn tập để lật thẻ</span>{card.plural && <span className="plural-tag">{card.plural}</span>}</div><div className="vocab-translation">{card.back}</div></article>)}</div> : <EmptyState title="Chưa có thẻ từ nào" text="Tạo thẻ đầu tiên hoặc nhập danh sách từ vựng có sẵn." action={() => setModal("card")}/>}
+            {filteredCards.length ? <div className="vocab-grid">{filteredCards.map(card => <article className="vocab-card" key={card.id}><div className="vocab-top"><span className="vocab-language">DEUTSCH</span><button className="more-button" onClick={() => deleteCard(card)} title="Xóa thẻ"><Trash2 size={16}/></button></div><div className="vocab-front-row"><div className="vocab-front">{card.front}</div><button className="voice-button" onClick={()=>speakGerman(card.front)} title={`Phát âm ${card.front}`} aria-label={`Phát âm ${card.front}`}><Volume2 size={18}/></button></div><div className="vocab-bottom"><span className="vocab-hint">Nhấn khi ôn tập để lật thẻ</span>{card.plural && <span className="plural-tag">{card.plural}</span>}</div><div className="vocab-translation">{card.back}</div></article>)}</div> : <EmptyState title="Chưa có thẻ từ nào" text="Tạo thẻ đầu tiên hoặc nhập danh sách từ vựng có sẵn." action={openCardForm}/>}
           </section>}
 
           {view === "folder-overview" && <section>
             <div className="page-heading"><div><div className="eyebrow">TỔNG CÁC TỪ VỰNG</div><h1>{currentFolder?.name || "Thư mục"}</h1><p>Xem toàn bộ thẻ và kiểm tra từ bị trùng trong thư mục này.</p></div><button className="btn-secondary" onClick={() => setView("cards")}><ChevronLeft size={17}/> Quay lại thẻ từ</button></div>
             <div className="preview-toolbar folder-overview-toolbar"><span>{folderCards.length} thẻ · {duplicateWordGroups.length} từ bị lặp · {duplicateExtraCount} thẻ dư</span><button className="btn-primary" onClick={removeFolderDuplicates} disabled={!duplicateExtraCount}><Check size={17}/> Lưu lại, giữ 1 thẻ mỗi từ</button></div>
-            {folderCards.length ? <div className="table-wrap"><table><thead><tr><th>TỪ VỰNG (MẶT TRƯỚC)</th><th>SỐ NHIỀU</th><th>NGHĨA (MẶT SAU)</th><th>TRẠNG THÁI</th></tr></thead><tbody>{folderCards.map(card=>{const duplicate=duplicateCardIds.has(card.id);return <tr key={card.id} className={duplicate?"duplicate-row":""}><td>{card.front}</td><td>{card.plural||"—"}</td><td>{card.back}</td><td><span className={`duplicate-status ${duplicate?"is-duplicate":"is-new"}`}><span className="duplicate-checkbox">{duplicate&&<Check size={12}/>}</span>{duplicate?"Trùng lặp":"Không trùng"}</span></td></tr>;})}</tbody></table></div> : <EmptyState title="Thư mục chưa có thẻ" text="Thêm thẻ từ hoặc nhập danh sách để bắt đầu." action={() => setModal("card")}/>}
+            {folderCards.length ? <div className="table-wrap"><table><thead><tr><th>TỪ VỰNG (MẶT TRƯỚC)</th><th>SỐ NHIỀU</th><th>NGHĨA (MẶT SAU)</th><th>TRẠNG THÁI</th></tr></thead><tbody>{folderCards.map(card=>{const duplicate=duplicateCardIds.has(card.id);return <tr key={card.id} className={duplicate?"duplicate-row":""}><td>{card.front}</td><td>{card.plural||"—"}</td><td>{card.back}</td><td><span className={`duplicate-status ${duplicate?"is-duplicate":"is-new"}`}><span className="duplicate-checkbox">{duplicate&&<Check size={12}/>}</span>{duplicate?"Trùng lặp":"Không trùng"}</span></td></tr>;})}</tbody></table></div> : <EmptyState title="Thư mục chưa có thẻ" text="Thêm thẻ từ hoặc nhập danh sách để bắt đầu." action={openCardForm}/>}
           </section>}
 
           {view === "import" && <ImportView bulkText={bulkText} setBulkText={setBulkText} onParse={importText} onFile={importFile} onImage={importImage} fileRef={fileRef} imageRef={imageRef} loading={loading}/>}
@@ -508,7 +560,7 @@ function App() {
 
 function Home({folders,cards,known,onStudy,onCreate,onImport,onFolder}) {
   const percent = cards.length ? Math.round(known/cards.length*100) : 0;
-  return <section><div className="welcome-banner"><div className="welcome-copy"><div className="eyebrow light">CHÀO MỪNG BẠN TRỞ LẠI</div><h1>Học một chút mỗi ngày,<br/>tiến bộ từng ngày.</h1><p>Biến những từ vựng khó nhớ thành kiến thức của riêng bạn.</p><div className="welcome-actions"><button className="btn-white" onClick={onStudy}><Brain size={17}/> Bắt đầu ôn tập</button><button className="btn-glass" onClick={onCreate}><Plus size={17}/> Tạo thẻ mới</button></div></div><div className="banner-art"><div className="art-card art-back">die Prüfung</div><div className="art-card art-front"><span>DEUTSCH</span><strong>der Fehler</strong><small>die Fehler</small></div><div className="sparkle sparkle-one">✦</div><div className="sparkle sparkle-two">✧</div></div></div>
+  return <section><div className="welcome-banner"><div className="welcome-copy"><div className="eyebrow light">CHÀO MỪNG BẠN TRỞ LẠI</div><h1>Học một chút mỗi ngày,<br/>tiến bộ từng ngày.</h1><p>Biến những từ vựng khó nhớ thành kiến thức của riêng bạn.</p><div className="welcome-actions"><button className="btn-white" onClick={onStudy}><Brain size={17}/> Bắt đầu ôn tập</button><button className="btn-glass" onClick={onCreate}><Plus size={17}/> Tạo thẻ mới</button></div></div><div className="banner-art"><div className="art-card art-back">WortKarte</div><div className="art-card art-front"><span>DEUTSCH</span><strong>Từ vựng</strong><small>Thẻ của bạn</small></div><div className="sparkle sparkle-one">✦</div><div className="sparkle sparkle-two">✧</div></div></div>
     <div className="section-title"><div><h2>Tổng quan học tập</h2><p>Theo dõi tiến độ ghi nhớ từ vựng của bạn.</p></div></div>
     <div className="stats-grid"><Stat icon={BookOpen} label="Tổng số thẻ" value={cards.length} tint="purple"/><Stat icon={Folder} label="Thư mục" value={folders.length} tint="green"/><Stat icon={CheckCircle2} label="Đã ghi nhớ" value={known} tint="orange"/><Stat icon={Brain} label="Tiến độ ghi nhớ" value={`${percent}%`} tint="pink"/></div>
     <div className="home-columns"><div className="panel"><div className="panel-heading"><div><h3>Thư mục gần đây</h3><p>Chọn một bộ từ để bắt đầu học.</p></div><button className="link-button" onClick={()=>folders[0]&&onFolder(folders[0].id)}>Xem thư mục</button></div>{folders.length?folders.slice(0,4).map(f=><button className="folder-row" key={f.id} onClick={()=>onFolder(f.id)}><span className="folder-icon" style={{background:`${f.color}18`,color:f.color}}><Folder size={19}/></span><span className="folder-row-name"><strong>{f.name}</strong><small>{cards.filter(c=>c.folder_id===f.id).length} thẻ từ</small></span><ChevronRight size={18}/></button>):<p className="muted">Bạn chưa có thư mục nào.</p>}</div><div className="panel quick-panel"><div className="quick-icon"><Sparkles size={21}/></div><h3>Bắt đầu thật dễ dàng</h3><p>Thêm từng từ hoặc nhập cả danh sách từ sách, tài liệu và ảnh chụp.</p><button className="quick-action" onClick={onImport}><ImagePlus size={17}/> Nhập từ văn bản / ảnh <ChevronRight size={16}/></button><div className="quick-tip"><CircleHelp size={15}/> Mẹo: dùng dấu | để phân tách 3 cột từ, số nhiều và nghĩa.</div></div></div>
