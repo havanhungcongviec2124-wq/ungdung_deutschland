@@ -170,30 +170,66 @@ export default function AppShell({
 }
 
 function FolderListItem({ folder, count, selected, open, onOpenChange, onSelect, onDelete }) {
-  const pointerStart = useRef(null);
-  const didSwipe = useRef(false);
+  const touchStart = useRef(null);
+  const longPressTimer = useRef(null);
+  const suppressClick = useRef(false);
+  const suppressClickTimer = useRef(null);
 
-  function handlePointerDown(event) {
-    if (event.pointerType !== "touch") return;
-    pointerStart.current = { x: event.clientX, y: event.clientY };
-    didSwipe.current = false;
+  function suppressNextClick() {
+    suppressClick.current = true;
+    window.clearTimeout(suppressClickTimer.current);
+    suppressClickTimer.current = window.setTimeout(() => {
+      suppressClick.current = false;
+    }, 500);
   }
 
-  function handlePointerUp(event) {
-    if (!pointerStart.current) return;
-    const deltaX = event.clientX - pointerStart.current.x;
-    const deltaY = event.clientY - pointerStart.current.y;
-    pointerStart.current = null;
+  function handleTouchStart(event) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStart.current = { x: touch.clientX, y: touch.clientY, longPressed: false };
+    window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(() => {
+      if (!touchStart.current) return;
+      touchStart.current.longPressed = true;
+      onOpenChange(true);
+    }, 500);
+  }
+
+  function handleTouchMove(event) {
+    if (!touchStart.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - touchStart.current.x;
+    const deltaY = touch.clientY - touchStart.current.y;
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      window.clearTimeout(longPressTimer.current);
+    }
+  }
+
+  function handleTouchEnd(event) {
+    window.clearTimeout(longPressTimer.current);
+    if (!touchStart.current) return;
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (start.longPressed) {
+      suppressNextClick();
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
     if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
 
-    didSwipe.current = true;
-    if (deltaX > 0) onOpenChange(true);
-    else onOpenChange(false);
+    suppressNextClick();
+    onOpenChange(deltaX > 0);
   }
 
   function handleClick() {
-    if (didSwipe.current) {
-      didSwipe.current = false;
+    if (suppressClick.current) {
+      window.clearTimeout(suppressClickTimer.current);
+      suppressClick.current = false;
       return;
     }
     if (open) {
@@ -216,9 +252,14 @@ function FolderListItem({ folder, count, selected, open, onOpenChange, onSelect,
       </button>
       <button
         className={`folder-item ${selected ? "selected" : ""}`}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => { pointerStart.current = null; }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          window.clearTimeout(longPressTimer.current);
+          touchStart.current = null;
+        }}
+        onContextMenu={(event) => event.preventDefault()}
         onClick={handleClick}
         aria-label={`${folder.name}, ${count} thẻ`}
       >
