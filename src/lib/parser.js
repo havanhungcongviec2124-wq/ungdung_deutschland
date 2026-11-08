@@ -70,7 +70,7 @@ function groupWordsByRow(words) {
 }
 
 function findHeaderAnchors(rows) {
-  const frontPattern = /^(tu|vung|vocabulary|word|front)$/;
+  const frontPattern = /^(tu|vung|tinh|adjektiv|adjective|vocabulary|word|front)$/;
   const pluralPattern = /^(so|nhieu|plural|pluralform)$/;
   const backPattern = /^(nghia|meaning|translation|back|viet|vietnamese)$/;
 
@@ -78,22 +78,33 @@ function findHeaderAnchors(rows) {
     const row = rows[index];
     const texts = row.map(word => normalizeOcrText(word.text));
     const joined = texts.join(" ");
-    const hasFront = texts.some(text => frontPattern.test(text)) || joined.includes("tu vung");
+    const hasVocabularyHeader = joined.includes("tu vung");
+    const hasAdjectiveHeader = joined.includes("tinh tu");
+    const hasFront = texts.some(text => frontPattern.test(text)) || hasVocabularyHeader || hasAdjectiveHeader;
     const hasPlural = texts.some(text => pluralPattern.test(text)) || joined.includes("so nhieu");
     const hasBack = texts.some(text => backPattern.test(text)) || joined.includes("nghia tieng viet");
     if (!hasFront || !hasBack) continue;
 
-    const anchors = {
-      front: row.filter(word => frontPattern.test(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2),
-      plural: row.filter(word => pluralPattern.test(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2),
-      back: row.filter(word => backPattern.test(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2)
+    const frontHeaderWords = hasAdjectiveHeader
+      ? ["tinh", "tu"]
+      : ["tu", "vung"];
+    const backHeaderWords = ["nghia", "tieng", "viet"];
+    const headerPositions = (phrase, tokens, pattern) => {
+      const phraseWord = row.find(word => normalizeOcrText(word.text) === phrase);
+      if (phraseWord) return [(phraseWord.bbox.x0 + phraseWord.bbox.x1) / 2];
+      return row
+        .filter(word => tokens.includes(normalizeOcrText(word.text)) || pattern.test(normalizeOcrText(word.text)))
+        .map(word => (word.bbox.x0 + word.bbox.x1) / 2);
     };
-    if (joined.includes("tu vung") && !anchors.front.length) {
-      anchors.front = row.filter(word => ["tu", "vung"].includes(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2);
-    }
-    if (joined.includes("nghia tieng viet") && !anchors.back.length) {
-      anchors.back = row.filter(word => ["nghia", "tieng", "viet"].includes(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2);
-    }
+    const anchors = {
+      front: headerPositions(
+        hasAdjectiveHeader ? "tinh tu" : "tu vung",
+        frontHeaderWords,
+        frontPattern
+      ),
+      plural: row.filter(word => pluralPattern.test(normalizeOcrText(word.text))).map(word => (word.bbox.x0 + word.bbox.x1) / 2),
+      back: headerPositions("nghia tieng viet", backHeaderWords, backPattern)
+    };
     return { index, anchors, hasPlural };
   }
   return null;
@@ -104,7 +115,7 @@ function textForWords(words) {
   return /^[-—–=]+$/.test(text) ? "" : text;
 }
 
-function cellsFromRow(row, anchors, hasPlural) {
+function cellsFromRow(row, anchors, hasPlural, separators = []) {
   if (anchors) {
     const keys = hasPlural ? ["front", "plural", "back"] : ["front", "back"];
     const centers = Object.fromEntries(keys.map(key => {
@@ -119,27 +130,100 @@ function cellsFromRow(row, anchors, hasPlural) {
           Math.abs(centerX - centers[key]) < Math.abs(centerX - centers[best]) ? key : best, keys[0]);
         cells[closest].push(word);
       }
+      if (keys.length === 2) {
+        return [textForWords(cells.front), "", textForWords(cells.back)];
+      }
       return keys.map(key => textForWords(cells[key]));
     }
   }
 
-  const averageHeight = row.reduce((sum, word) => sum + word.height, 0) / row.length;
-  const gapThreshold = Math.max(28, averageHeight * 2.3);
-  const cells = [];
-  let cell = [];
+  const cells = Array.from({ length: separators.length + 1 }, () => []);
   for (const word of row) {
-    const gap = cell.length ? word.bbox.x0 - cell[cell.length - 1].bbox.x1 : 0;
-    if (cell.length && gap > gapThreshold) {
-      cells.push(cell);
-      cell = [];
-    }
-    cell.push(word);
+    const centerX = (word.bbox.x0 + word.bbox.x1) / 2;
+    const cellIndex = separators.findIndex(separator => centerX < separator);
+    cells[cellIndex === -1 ? cells.length - 1 : cellIndex].push(word);
   }
-  if (cell.length) cells.push(cell);
   const values = cells.map(textForWords);
-  if (values.length >= 3) return [values[0], values[1], values.slice(2).filter(Boolean).join(" ")];
   if (values.length === 2) return [values[0], "", values[1]];
+  if (values.length >= 3) return [values[0], values[1], values.slice(2).filter(Boolean).join(" ")];
   return [];
+}
+
+function findColumnSeparators(rows) {
+  const heights = rows.flat().map(word => word.height).filter(height => height > 0).sort((a, b) => a - b);
+  const medianHeight = heights[Math.floor(heights.length / 2)] || 16;
+  const gapThreshold = Math.max(12, medianHeight * 1.1);
+  const candidates = [];
+  const allGaps = [];
+
+  rows.forEach((row, rowIndex) => {
+    for (let index = 1; index < row.length; index += 1) {
+      const previous = row[index - 1];
+      const current = row[index];
+      const gap = current.bbox.x0 - previous.bbox.x1;
+      if (gap > 0) {
+        allGaps.push({
+          center: (current.bbox.x0 + previous.bbox.x1) / 2,
+          gap,
+          rowIndex
+        });
+      }
+      if (gap > gapThreshold) {
+        candidates.push({
+          center: (current.bbox.x0 + previous.bbox.x1) / 2,
+          gap,
+          rowIndex
+        });
+      }
+    }
+  });
+  if (!candidates.length) {
+    const largestGapsByRow = new Map();
+    for (const candidate of allGaps) {
+      const current = largestGapsByRow.get(candidate.rowIndex);
+      if (!current || candidate.gap > current.gap) {
+        largestGapsByRow.set(candidate.rowIndex, candidate);
+      }
+    }
+    candidates.push(...largestGapsByRow.values());
+  }
+  if (!candidates.length) return [];
+
+  const tolerance = Math.max(12, medianHeight * 1.4);
+  const clusters = [];
+  for (const candidate of candidates.sort((a, b) => a.center - b.center)) {
+    const cluster = clusters.at(-1);
+    if (cluster && candidate.center - cluster.center <= tolerance) {
+      cluster.candidates.push(candidate);
+      cluster.center = cluster.candidates.reduce((sum, item) => sum + item.center, 0) / cluster.candidates.length;
+    } else {
+      clusters.push({ center: candidate.center, candidates: [candidate] });
+    }
+  }
+
+  const minimumRows = rows.length > 1 ? Math.max(2, Math.ceil(rows.length * 0.4)) : 1;
+  const recurring = clusters
+    .map(cluster => ({
+      ...cluster,
+      rowCount: new Set(cluster.candidates.map(candidate => candidate.rowIndex)).size,
+      averageGap: cluster.candidates.reduce((sum, candidate) => sum + candidate.gap, 0) / cluster.candidates.length
+    }))
+    .filter(cluster => cluster.rowCount >= minimumRows)
+    .sort((a, b) => b.averageGap * b.rowCount - a.averageGap * a.rowCount);
+
+  const strongest = recurring[0];
+  if (!strongest) {
+    return [candidates.reduce((sum, candidate) => sum + candidate.center, 0) / candidates.length];
+  }
+
+  const second = recurring.find(cluster =>
+    Math.abs(cluster.center - strongest.center) > medianHeight * 2.5 &&
+    cluster.rowCount >= Math.max(minimumRows, Math.ceil(strongest.rowCount * 0.6)) &&
+    cluster.averageGap >= strongest.averageGap * 0.65
+  );
+  return [strongest, ...(second ? [second] : [])]
+    .map(cluster => cluster.center)
+    .sort((a, b) => a - b);
 }
 
 /**
@@ -155,9 +239,15 @@ export function parseOcrTable(blocks) {
   const rows = groupWordsByRow(words);
   const header = findHeaderAnchors(rows);
   const dataRows = rows.slice(header ? header.index + 1 : 0);
+  const separators = header ? [] : findColumnSeparators(dataRows);
 
   return dataRows.map(row => {
-    const [front, plural, back] = cellsFromRow(row, header?.anchors, header?.hasPlural ?? true);
+    const [front, plural, back] = cellsFromRow(
+      row,
+      header?.anchors,
+      header?.hasPlural ?? separators.length > 1,
+      separators
+    );
     return { front, plural, back, note: "" };
   }).filter(row => row.front && row.back);
 }
