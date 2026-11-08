@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import {
   ChevronRight,
   Download,
@@ -6,6 +7,7 @@ import {
   Menu,
   Plus,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 const pageTitles = {
@@ -28,12 +30,15 @@ export default function AppShell({
   cards,
   activeFolder,
   onSelectFolder,
+  onDeleteFolder,
   onCreateFolder,
   onUpdateApp,
   updatingApp,
   onInstall,
   isInstalled,
 }) {
+  const [openFolderId, setOpenFolderId] = useState("");
+
   return (
     <div className="app-shell">
       {/* ---------- Sidebar ---------- */}
@@ -87,22 +92,16 @@ export default function AppShell({
         {/* Folder list */}
         <div className="folder-list">
           {folders.map((folder) => (
-            <button
+            <FolderListItem
               key={folder.id}
-              className={`folder-item ${
-                activeFolder === folder.id ? "selected" : ""
-              }`}
-              onClick={() => onSelectFolder(folder.id)}
-            >
-              <span
-                className="folder-dot"
-                style={{ background: folder.color || "#6d5dfc" }}
-              />
-              <span className="folder-name">{folder.name}</span>
-              <span className="folder-total">
-                {cards.filter((card) => card.folder_id === folder.id).length}
-              </span>
-            </button>
+              folder={folder}
+              count={cards.filter((card) => card.folder_id === folder.id).length}
+              selected={activeFolder === folder.id}
+              open={openFolderId === folder.id}
+              onOpenChange={(open) => setOpenFolderId(open ? folder.id : "")}
+              onSelect={() => onSelectFolder(folder.id)}
+              onDelete={() => onDeleteFolder(folder.id)}
+            />
           ))}
           {!folders.length && <p className="empty-small">Chưa có thư mục</p>}
         </div>
@@ -166,6 +165,70 @@ export default function AppShell({
 
         <div className="content-wrap">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function FolderListItem({ folder, count, selected, open, onOpenChange, onSelect, onDelete }) {
+  const pointerStart = useRef(null);
+  const didSwipe = useRef(false);
+
+  function handlePointerDown(event) {
+    if (event.pointerType !== "touch") return;
+    pointerStart.current = { x: event.clientX, y: event.clientY };
+    didSwipe.current = false;
+  }
+
+  function handlePointerUp(event) {
+    if (!pointerStart.current) return;
+    const deltaX = event.clientX - pointerStart.current.x;
+    const deltaY = event.clientY - pointerStart.current.y;
+    pointerStart.current = null;
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+
+    didSwipe.current = true;
+    if (deltaX > 0) onOpenChange(true);
+    else onOpenChange(false);
+  }
+
+  function handleClick() {
+    if (didSwipe.current) {
+      didSwipe.current = false;
+      return;
+    }
+    if (open) {
+      onOpenChange(false);
+      return;
+    }
+    onSelect();
+  }
+
+  return (
+    <div className={`folder-swipe-row ${open ? "folder-swipe-open" : ""}`}>
+      <button
+        className="folder-delete-action"
+        aria-label={`Xóa thư mục ${folder.name}`}
+        title={`Xóa thư mục ${folder.name}`}
+        onClick={onDelete}
+        tabIndex={open ? 0 : -1}
+      >
+        <Trash2 size={17} />
+      </button>
+      <button
+        className={`folder-item ${selected ? "selected" : ""}`}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => { pointerStart.current = null; }}
+        onClick={handleClick}
+        aria-label={`${folder.name}, ${count} thẻ`}
+      >
+        <span
+          className="folder-dot"
+          style={{ background: folder.color || "#6d5dfc" }}
+        />
+        <span className="folder-name">{folder.name}</span>
+        <span className="folder-total">{count}</span>
+      </button>
     </div>
   );
 }

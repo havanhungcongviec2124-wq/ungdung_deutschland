@@ -62,6 +62,7 @@ function App() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [sharedFolder, setSharedFolder] = useState(null);
+  const [folderToDelete, setFolderToDelete] = useState(null);
 
   const [editingCardId, setEditingCardId] = useState(null);
   const [editingCardDraft, setEditingCardDraft] = useState(null);
@@ -412,6 +413,46 @@ function App() {
     toast("Đã xóa thẻ.");
   }
 
+  function requestDeleteFolder(folderId) {
+    const folder = folders.find((item) => item.id === folderId);
+    if (!folder) return;
+    setFolderToDelete(folder);
+    setModal("delete-folder-confirm");
+  }
+
+  function deleteFolder() {
+    if (!folderToDelete) return;
+    const deletedFolder = folderToDelete;
+    const remainingFolders = folders.filter((folder) => folder.id !== deletedFolder.id);
+    setCanPersist(true);
+    setFolders(remainingFolders);
+    setCards((previous) => previous.filter((card) => card.folder_id !== deletedFolder.id));
+    setReviewHistory((previous) =>
+      Object.fromEntries(
+        Object.entries(previous).map(([day, foldersForDay]) => {
+          if (!foldersForDay || typeof foldersForDay !== "object") return [day, foldersForDay];
+          const remaining = { ...foldersForDay };
+          delete remaining[deletedFolder.id];
+          return [day, remaining];
+        })
+      )
+    );
+    setDailyGoals((previous) => {
+      const remaining = { ...previous };
+      delete remaining[deletedFolder.id];
+      return remaining;
+    });
+    if (activeFolder === deletedFolder.id) {
+      setActiveFolder(remainingFolders[0]?.id || "");
+      setView(remainingFolders.length ? "cards" : "home");
+    }
+    setEditingCardId(null);
+    setEditingCardDraft(null);
+    setFolderToDelete(null);
+    setModal("");
+    toast(`Đã xóa thư mục "${deletedFolder.name}" và dữ liệu liên quan.`);
+  }
+
   /* ============================================================
      DUPLICATE / EDIT FLOW
      ============================================================ */
@@ -734,6 +775,7 @@ function App() {
         folders={folders}
         cards={cards}
         activeFolder={activeFolder}
+        onDeleteFolder={requestDeleteFolder}
         onSelectFolder={(id) => {
           setActiveFolder(id);
           setView("cards");
@@ -942,6 +984,35 @@ function App() {
               <FolderPlus size={17} /> Tạo thư mục
             </button>
           </form>
+        </Modal>
+      )}
+
+      {modal === "delete-folder-confirm" && folderToDelete && (
+        <Modal title="Xác nhận xóa thư mục" onClose={() => {
+          setModal("");
+          setFolderToDelete(null);
+        }}>
+          <div className="delete-folder-confirm">
+            <p>
+              Bạn có muốn xóa thư mục <strong>“{folderToDelete.name}”</strong> không?
+              Thao tác này cũng xóa {cards.filter((card) => card.folder_id === folderToDelete.id).length} thẻ
+              và tiến độ ôn tập của thư mục.
+            </p>
+            <div className="delete-folder-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setModal("");
+                  setFolderToDelete(null);
+                }}
+              >
+                Không
+              </button>
+              <button className="btn-primary delete-folder-confirm-button" onClick={deleteFolder}>
+                Có, xóa thư mục
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 
