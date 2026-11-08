@@ -6,6 +6,7 @@ import {
   FolderPlus,
   Layers3,
   Languages,
+  Link2,
   Plus,
   RefreshCw,
   Share2,
@@ -28,10 +29,15 @@ import {
   todayKey,
 } from "./lib/appData";
 import { createWorker } from "tesseract.js";
-import { createFolderShareUrl, readFolderShareToken } from "./lib/folderSharing";
+import {
+  createFolderShareUrl,
+  readFolderShareLink,
+  readFolderShareToken,
+} from "./lib/folderSharing";
 
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
+import SharedLinkPage from "./components/SharedLinkPage";
 import StudyPage from "./components/StudyPage";
 import { CardsPage, FolderOverviewPage } from "./components/CardsPage";
 import ImportPreviewPage from "./components/ImportPreviewPage";
@@ -62,6 +68,8 @@ function App() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [sharedFolder, setSharedFolder] = useState(null);
+  const [sharedLinkDraft, setSharedLinkDraft] = useState("");
+  const [openingSharedLink, setOpeningSharedLink] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [folderToRename, setFolderToRename] = useState(null);
   const [renamedFolderDraft, setRenamedFolderDraft] = useState("");
@@ -238,6 +246,21 @@ function App() {
       toast(`Không thể tạo link chia sẻ: ${error.message}`);
     } finally {
       setSharingFolder(false);
+    }
+  }
+
+  async function openSharedFolderLink() {
+    setOpeningSharedLink(true);
+    try {
+      const share = await readFolderShareLink(sharedLinkDraft);
+      setSharedFolder(share);
+      setSharedLinkDraft("");
+      setModal("shared-folder");
+    } catch (error) {
+      console.error("Không thể mở link chia sẻ thư mục:", error);
+      toast(error.message);
+    } finally {
+      setOpeningSharedLink(false);
     }
   }
 
@@ -789,6 +812,7 @@ function App() {
     { id: "home", label: "Tổng quan", icon: Layers3, onSelect: () => setView("home") },
     { id: "cards", label: "Thẻ từ vựng", icon: BookOpen, onSelect: () => setView("cards") },
     { id: "import", label: "Nhập hàng loạt", icon: Upload, onSelect: () => setView("import") },
+    { id: "shared-link", label: "Thêm bằng link chia sẻ", icon: Link2, onSelect: () => setView("shared-link") },
   ];
 
   /* ============================================================
@@ -891,6 +915,15 @@ function App() {
             fileRef={fileRef}
             imageRef={imageRef}
             loading={loading}
+          />
+        )}
+
+        {view === "shared-link" && (
+          <SharedLinkPage
+            link={sharedLinkDraft}
+            setLink={setSharedLinkDraft}
+            onOpenLink={openSharedFolderLink}
+            loading={openingSharedLink}
           />
         )}
 

@@ -4,6 +4,7 @@ import {
   Download,
   HardDrive,
   Languages,
+  Link2,
   Menu,
   Pencil,
   Plus,
@@ -14,6 +15,7 @@ import {
 const pageTitles = {
   home: "Tổng quan",
   import: "Nhập hàng loạt",
+  "shared-link": "Thêm bằng link chia sẻ",
   "import-preview": "Nhập hàng loạt",
   study: "Kiểm tra",
   result: "Kiểm tra",

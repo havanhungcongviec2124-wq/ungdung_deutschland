@@ -164,3 +164,26 @@ export async function readFolderShareToken(token) {
     cards,
   };
 }
+
+export async function readFolderShareLink(value) {
+  const input = String(value || "").trim();
+  if (!input) {
+    throw new Error("Hãy dán link chia sẻ thư mục.");
+  }
+
+  let token = input;
+  if (!/^[gj][A-Za-z0-9_-]+$/.test(input)) {
+    let url;
+    try {
+      url = new URL(input);
+    } catch {
+      throw new Error("Link không hợp lệ. Hãy dán link chia sẻ WortKarte.");
+    }
+    token = new URLSearchParams(url.hash.slice(1)).get("share") || "";
+  }
+
+  if (!token) {
+    throw new Error("Link không chứa dữ liệu thư mục được chia sẻ.");
+  }
+  return readFolderShareToken(token);
+}

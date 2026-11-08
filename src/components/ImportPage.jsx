@@ -167,6 +167,7 @@ export default function ImportPage({
             trước. Ảnh chụp thẳng, rõ chữ cho kết quả tốt hơn.
           </div>
         </div>
+
       </div>
 
       {/* ---------- Format example ---------- */}

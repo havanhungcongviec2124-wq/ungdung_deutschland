@@ -31,12 +31,15 @@ button { cursor: pointer; }
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
+  height: 100vh;
+  height: 100dvh;
   width: 258px;
   background: #fff;
   border-right: 1px solid #eceef4;
   padding: 27px 18px 18px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   z-index: 20;
 }
 
@@ -108,11 +111,33 @@ button { cursor: pointer; }
   display: grid;
   place-items: center;
 }
-.folder-list { display: grid; gap: 4px; overflow: auto; }
+.folder-list {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  height: 0;
+  gap: 6px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-color: #c9c5f5 transparent;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
 .folder-swipe-row {
+  flex: 0 0 48px;
+  min-height: 48px;
   overflow: hidden;
   border-radius: 9px;
-  background: #fff0f1;
+  background: #f6f5ff;
+}
+.folder-list::-webkit-scrollbar { width: 6px; }
+.folder-list::-webkit-scrollbar-track { background: transparent; }
+.folder-list::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background: #c9c5f5;
 }
 .folder-swipe-track {
   position: relative;
@@ -136,7 +161,7 @@ button { cursor: pointer; }
   background: #6d5dfc;
 }
 .folder-delete-action {
-  background: #fff0f1;
+  background: #f6f5ff;
   color: #c84958;
 }
 .folder-item {
@@ -803,6 +828,7 @@ button { cursor: pointer; }
 .format-hint { font-size: 9px; color: #9da1b0; line-height: 1.6; margin: 10px 0 14px; }
 .format-hint b { color: #6e64c8; }
 .full { width: 100%; }
+.shared-link-card { width: min(100%, 560px); }
 
 .upload-zone {
   height: 160px;
