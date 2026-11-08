@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen, Brain, Check, ChevronLeft, ChevronRight, CircleHelp, HardDrive,
   Folder, FolderPlus, GraduationCap, ImagePlus, Layers3, Menu,
-  Plus, Search, Sparkles, Trash2, Upload, Volume2, Download,
+  Plus, Search, Sparkles, Trash2, Upload, Volume2, Download, Pencil, Save,
   X, RotateCcw, CheckCircle2, XCircle, Languages, FileText
 } from "lucide-react";
 import { parseOcrTable, parseOcrText, parseVocabularyText } from "./lib/parser";
@@ -131,6 +131,8 @@ function App() {
   const [modal, setModal] = useState("");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [editingCardId, setEditingCardId] = useState(null);
+  const [editingCardDraft, setEditingCardDraft] = useState(null);
   const [folderName, setFolderName] = useState("");
   const [draft, setDraft] = useState({ front: "", plural: "", back: "", note: "" });
   const [bulkText, setBulkText] = useState("");
@@ -323,6 +325,33 @@ function App() {
     toast(`Đã xóa ${duplicateIds.size} thẻ trùng, mỗi từ chỉ còn 1 thẻ.`);
   }
 
+  function startEditingFolderCard(card) {
+    setEditingCardId(card.id);
+    setEditingCardDraft({ front: card.front, plural: card.plural || "", back: card.back });
+  }
+
+  function updateEditingCardDraft(field, value) {
+    setEditingCardDraft(prev => ({ ...prev, [field]: value }));
+  }
+
+  function saveFolderCardEdit(card) {
+    const front = editingCardDraft?.front.trim();
+    const back = editingCardDraft?.back.trim();
+    if (!front || !back) return toast("Từ vựng và nghĩa không được để trống.");
+    setCanPersist(true);
+    setCards(prev => prev.map(item => item.id === card.id
+      ? { ...item, front, plural: editingCardDraft.plural.trim(), back }
+      : item));
+    setEditingCardId(null);
+    setEditingCardDraft(null);
+    toast("Đã cập nhật thẻ từ.");
+  }
+
+  function cancelFolderCardEdit() {
+    setEditingCardId(null);
+    setEditingCardDraft(null);
+  }
+
   function markKnown(card, known) {
     setCanPersist(true);
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, known } : c));
@@ -427,25 +456,36 @@ function App() {
     else toast("Không đọc được file. Hỗ trợ TXT và CSV.");
   }
 
-  async function importImage(file) {
-    if (!file) return;
+  async function importImages(files) {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
     if (!folders.length) {
       setModal("folder");
       return toast("Tạo thư mục trước khi nhập thẻ từ.");
     }
-    setLoading(true); toast("Đang nhận diện chữ trong ảnh...");
+    setLoading(true);
+    toast(`Đang nhận diện ${selectedFiles.length} ảnh...`);
     let worker;
     try {
       worker = await createWorker("deu+eng+vie");
-      const { data } = await worker.recognize(file, {}, { blocks: true });
-      const rows = parseOcrTable(data.blocks);
-      const parsedRows = rows.length ? rows : parseOcrText(data.text);
-      setBulkText(data.text); setBulkRows(parsedRows); setBulkFolder(activeFolder);
-      if (parsedRows.length) setView("import-preview");
+      const allRows = [];
+      const recognizedTexts = [];
+      for (let index = 0; index < selectedFiles.length; index += 1) {
+        setNotice(`Đang nhận diện ảnh ${index + 1}/${selectedFiles.length}...`);
+        const { data } = await worker.recognize(selectedFiles[index], {}, { blocks: true });
+        recognizedTexts.push(data.text);
+        const rows = parseOcrTable(data.blocks);
+        allRows.push(...(rows.length ? rows : parseOcrText(data.text)));
+      }
+      const recognizedText = recognizedTexts.join("\n\n");
+      setBulkText(recognizedText); setBulkRows(allRows); setBulkFolder(activeFolder);
+      if (allRows.length) setView("import-preview");
       else {
         setView("import");
         toast("Chưa tách được hàng/cột từ ảnh. Hãy dùng ảnh rõ, chụp thẳng bảng và thử lại.");
       }
+      if (!allRows.length) return;
+      toast(`Đã nhận diện ${allRows.length} dòng từ ${selectedFiles.length} ảnh.`);
     } catch (err) { toast("Không thể nhận diện ảnh: " + err.message); }
     finally {
       if (worker) await worker.terminate();
@@ -537,10 +577,10 @@ function App() {
           {view === "folder-overview" && <section>
             <div className="page-heading"><div><div className="eyebrow">TỔNG CÁC TỪ VỰNG</div><h1>{currentFolder?.name || "Thư mục"}</h1><p>Xem toàn bộ thẻ và kiểm tra từ bị trùng trong thư mục này.</p></div><button className="btn-secondary" onClick={() => setView("cards")}><ChevronLeft size={17}/> Quay lại thẻ từ</button></div>
             <div className="preview-toolbar folder-overview-toolbar"><span>{folderCards.length} thẻ · {duplicateWordGroups.length} từ bị lặp · {duplicateExtraCount} thẻ dư</span><button className="btn-primary" onClick={removeFolderDuplicates} disabled={!duplicateExtraCount}><Check size={17}/> Lưu lại, giữ 1 thẻ mỗi từ</button></div>
-            {folderCards.length ? <div className="table-wrap"><table><thead><tr><th>TỪ VỰNG (MẶT TRƯỚC)</th><th>SỐ NHIỀU</th><th>NGHĨA (MẶT SAU)</th><th>TRẠNG THÁI</th></tr></thead><tbody>{folderCards.map(card=>{const duplicate=duplicateCardIds.has(card.id);return <tr key={card.id} className={duplicate?"duplicate-row":""}><td>{card.front}</td><td>{card.plural||"—"}</td><td>{card.back}</td><td><span className={`duplicate-status ${duplicate?"is-duplicate":"is-new"}`}><span className="duplicate-checkbox">{duplicate&&<Check size={12}/>}</span>{duplicate?"Trùng lặp":"Không trùng"}</span></td></tr>;})}</tbody></table></div> : <EmptyState title="Thư mục chưa có thẻ" text="Thêm thẻ từ hoặc nhập danh sách để bắt đầu." action={openCardForm}/>}
+            {folderCards.length ? <div className="table-wrap"><table><thead><tr><th>TỪ VỰNG (MẶT TRƯỚC)</th><th>SỐ NHIỀU</th><th>NGHĨA (MẶT SAU)</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody>{folderCards.map(card=>{const duplicate=duplicateCardIds.has(card.id);const editing=editingCardId===card.id;return <tr key={card.id} className={duplicate?"duplicate-row":""}><td>{editing?<input className="folder-edit-input" aria-label="Từ vựng" value={editingCardDraft.front} onChange={e=>updateEditingCardDraft("front",e.target.value)}/>:card.front}</td><td>{editing?<input className="folder-edit-input" aria-label="Số nhiều" value={editingCardDraft.plural} onChange={e=>updateEditingCardDraft("plural",e.target.value)}/>:card.plural||"—"}</td><td>{editing?<input className="folder-edit-input" aria-label="Nghĩa" value={editingCardDraft.back} onChange={e=>updateEditingCardDraft("back",e.target.value)}/>:card.back}</td><td><span className={`duplicate-status ${duplicate?"is-duplicate":"is-new"}`}><span className="duplicate-checkbox">{duplicate&&<Check size={12}/>}</span>{duplicate?"Trùng lặp":"Không trùng"}</span></td><td><div className="folder-edit-actions">{editing?<><button className="icon-button folder-save-button" title="Lưu thay đổi" aria-label="Lưu thay đổi" onClick={()=>saveFolderCardEdit(card)}><Save size={16}/></button><button className="icon-button" title="Hủy sửa" aria-label="Hủy sửa" onClick={cancelFolderCardEdit}><X size={16}/></button></>:<button className="icon-button" title={`Sửa ${card.front}`} aria-label={`Sửa ${card.front}`} onClick={()=>startEditingFolderCard(card)}><Pencil size={16}/></button>}</div></td></tr>;})}</tbody></table></div> : <EmptyState title="Thư mục chưa có thẻ" text="Thêm thẻ từ hoặc nhập danh sách để bắt đầu." action={openCardForm}/>}
           </section>}
 
-          {view === "import" && <ImportView bulkText={bulkText} setBulkText={setBulkText} onParse={importText} onFile={importFile} onImage={importImage} fileRef={fileRef} imageRef={imageRef} loading={loading}/>}
+          {view === "import" && <ImportView bulkText={bulkText} setBulkText={setBulkText} onParse={importText} onFile={importFile} onImages={importImages} fileRef={fileRef} imageRef={imageRef} loading={loading}/>}
           {view === "import-preview" && <section><div className="page-heading"><div><div className="eyebrow">KIỂM TRA DỮ LIỆU</div><h1>Xem trước thẻ từ</h1><p>Kiểm tra dữ liệu và các từ đã có trong thư mục trước khi lưu.</p></div><button className="btn-secondary" onClick={() => setView("import")}><ChevronLeft size={17}/> Quay lại</button></div><div className="preview-toolbar"><span>{validBulkCount} thẻ hợp lệ · {newBulkCount} thẻ mới · {duplicateBulkCount} từ đã tồn tại</span><select value={bulkFolder} onChange={e => setBulkFolder(e.target.value)}>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select><button className="btn-primary" onClick={confirmImport} disabled={!newBulkCount}><Check size={17}/> Lưu {newBulkCount} thẻ mới</button></div><div className="table-wrap"><table><thead><tr><th>TỪ VỰNG (MẶT TRƯỚC)</th><th>SỐ NHIỀU</th><th>NGHĨA (MẶT SAU)</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{bulkRows.map((row,i)=>{const isDuplicate=Boolean(row.front?.trim()&&row.back?.trim()&&existingFolderWords.has(normalizeVocabulary(row.front)));return <tr key={i} className={isDuplicate?"duplicate-row":""}><td><input value={row.front} onChange={e=>updateBulkRow(i,"front",e.target.value)}/></td><td><input value={row.plural || ""} onChange={e=>updateBulkRow(i,"plural",e.target.value)} placeholder="—"/></td><td><input value={row.back} onChange={e=>updateBulkRow(i,"back",e.target.value)}/></td><td><span className={`duplicate-status ${isDuplicate?"is-duplicate":"is-new"}`}><span className="duplicate-checkbox">{isDuplicate&&<Check size={12}/>}</span>{isDuplicate?"Đã có":"Mới"}</span></td><td><button className="icon-button danger" onClick={()=>setBulkRows(p=>p.filter((_,n)=>n!==i))}><Trash2 size={16}/></button></td></tr>;})}</tbody></table></div></section>}
 
           {view === "study" && studyCards[studyIndex] && <StudyView card={studyCards[studyIndex]} index={studyIndex} total={studyCards.length} mode={studyMode} options={quizOptions[studyIndex] || []} selectedAnswer={selectedAnswer} flipped={flipped} setFlipped={setFlipped} onAnswer={answerStudy} onChooseAnswer={chooseQuizAnswer} onContinue={nextStudyCard} onSpeak={speakGerman} onExit={()=>setView("cards")}/>}
@@ -568,11 +608,11 @@ function Home({folders,cards,known,onStudy,onCreate,onImport,onFolder}) {
 }
 function Stat({icon:Icon,label,value,tint}) {return <div className="stat-card"><div className={`stat-icon ${tint}`}><Icon size={19}/></div><span>{label}</span><strong>{value}</strong></div>;}
 function EmptyState({title,text,action}) {return <div className="empty-state"><div className="empty-icon"><BookOpen size={27}/></div><h3>{title}</h3><p>{text}</p><button className="btn-primary" onClick={action}><Plus size={17}/> Tạo thẻ đầu tiên</button></div>;}
-function ImportView({bulkText,setBulkText,onParse,onFile,onImage,fileRef,imageRef,loading}) {
+function ImportView({bulkText,setBulkText,onParse,onFile,onImages,fileRef,imageRef,loading}) {
   return <section><div className="page-heading"><div><div className="eyebrow">THÊM NHIỀU TỪ CÙNG LÚC</div><h1>Nhập hàng loạt</h1><p>Tiết kiệm thời gian bằng cách nhập văn bản, file hoặc ảnh chụp.</p></div></div>
     <div className="import-methods"><div className="import-card"><div className="import-card-icon purple-bg"><FileText size={22}/></div><h3>Dán văn bản</h3><p>Nhập danh sách từ vựng theo từng dòng.</p><textarea value={bulkText} onChange={e=>setBulkText(e.target.value)} rows="9" placeholder={"der Fehler | die Fehler | Lỗi, sai sót\ndie Prüfung | die Prüfungen | Kỳ thi\ndas Geschenk | die Geschenke | Món quà\nstattfinden | | diễn ra"}/><div className="format-hint">Định dạng: <b>Từ vựng | Số nhiều | Nghĩa</b></div><button className="btn-primary full" onClick={onParse}><Sparkles size={17}/> Phân tích văn bản</button></div>
     <div className="import-card"><div className="import-card-icon green-bg"><Upload size={22}/></div><h3>Tải file lên</h3><p>Hỗ trợ file TXT và CSV có 2 hoặc 3 cột.</p><div className="upload-zone" onClick={()=>fileRef.current?.click()}><Upload size={25}/><strong>Chọn file từ thiết bị</strong><span>TXT, CSV</span></div><input ref={fileRef} type="file" accept=".txt,.csv,text/plain,text/csv" hidden onChange={e=>onFile(e.target.files?.[0])}/><div className="format-hint">CSV có thể dùng tiêu đề: front, plural, back.</div></div>
-    <div className="import-card"><div className="import-card-icon orange-bg"><ImagePlus size={22}/></div><h3>Nhận diện từ ảnh</h3><p>OCR chạy ngay trong trình duyệt, không gửi ảnh lên dịch vụ AI bên ngoài.</p><div className="upload-zone image-zone" onClick={()=>imageRef.current?.click()}><ImagePlus size={25}/><strong>Chọn ảnh để nhận diện</strong><span>PNG, JPG, WEBP</span></div><input ref={imageRef} type="file" accept="image/*" hidden onChange={e=>onImage(e.target.files?.[0])}/><div className="format-hint">Tự tách bảng theo hàng và cột. Ảnh chụp thẳng, rõ chữ cho kết quả tốt hơn; hãy kiểm tra trước khi lưu.</div></div></div>
+    <div className="import-card"><div className="import-card-icon orange-bg"><ImagePlus size={22}/></div><h3>Nhận diện từ ảnh</h3><p>Chọn một hoặc nhiều ảnh. OCR chạy ngay trong trình duyệt, không gửi ảnh lên dịch vụ AI bên ngoài.</p><div className="upload-zone image-zone" onClick={()=>imageRef.current?.click()}><ImagePlus size={25}/><strong>Chọn ảnh để nhận diện</strong><span>PNG, JPG, WEBP · chọn được nhiều ảnh</span></div><input ref={imageRef} type="file" accept="image/*" multiple hidden onChange={e=>{onImages(e.target.files);e.target.value="";}}/><div className="format-hint">Tự tách bảng theo hàng và cột, gộp kết quả các ảnh vào một bảng xem trước. Ảnh chụp thẳng, rõ chữ cho kết quả tốt hơn.</div></div></div>
     <div className="import-example"><div className="example-icon"><CircleHelp size={18}/></div><div><strong>Ví dụ định dạng văn bản</strong><p>Mỗi dòng một thẻ. Dùng dấu <code>|</code> hoặc phím Tab để tách các cột. Nếu chỉ có 2 cột, nhập từ và nghĩa.</p></div></div>
   </section>;
 }
