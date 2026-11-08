@@ -1177,9 +1177,30 @@ function App() {
         <Modal title="Cài WortKarte lên thiết bị" onClose={() => setModal("")}>
           <div className="install-help">
             <p>
-              Ứng dụng được cài miễn phí từ trình duyệt. Hãy mở đường dẫn HTTPS của
-              ứng dụng bằng:
+              WortKarte là ứng dụng web. Trên máy tính, ứng dụng được cài từ trình duyệt,
+              không tải thành file .dmg.
             </p>
+            <div>
+              <strong>MacBook — Safari</strong>
+              <span>
+                Mở ứng dụng bằng Safari → trên thanh menu chọn <b>File</b> →{" "}
+                <b>Add to Dock…</b> → chọn <b>Add</b>. Biểu tượng WortKarte sẽ xuất hiện
+                trong Dock và thư mục Applications.
+              </span>
+            </div>
+            <div>
+              <strong>MacBook — Chrome</strong>
+              <span>
+                Nhấn biểu tượng cài đặt ở cuối thanh địa chỉ, hoặc mở menu <b>⋮</b> →{" "}
+                <b>Cast, save, and share</b> → <b>Install page as app</b>.
+              </span>
+            </div>
+            <div>
+              <strong>MacBook — Microsoft Edge</strong>
+              <span>
+                Mở menu <b>…</b> → <b>Apps</b> → <b>Install this site as an app</b>.
+              </span>
+            </div>
             <div>
               <strong>iPhone / iPad</strong>
               <span>
@@ -1202,8 +1223,9 @@ function App() {
               </span>
             </div>
             <small>
-              Cần triển khai ứng dụng lên hosting HTTPS trước khi chia sẻ. Dữ liệu thẻ
-              hiện lưu riêng trên từng thiết bị.
+              Nếu không thấy tùy chọn cài đặt, hãy mở website bằng đường dẫn HTTPS và
+              chờ tải trang hoàn tất. Nút cài tự động chỉ hoạt động khi trình duyệt hỗ trợ.
+              Dữ liệu thẻ vẫn lưu riêng trên từng thiết bị.
             </small>
           </div>
         </Modal>
