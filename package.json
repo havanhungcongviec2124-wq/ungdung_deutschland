@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
@@ -17,9 +18,11 @@
     "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.67.0",
     "@tailwindcss/vite": "^4.1.13",
     "@vitejs/plugin-react": "^4.7.0",
     "tailwindcss": "^4.1.13",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "wrangler": "^4.158.0"
   }
 }
