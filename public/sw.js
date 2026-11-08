@@ -1,4 +1,4 @@
-const CACHE_NAME = "wortkarte-shell-v1";
+const CACHE_NAME = "wortkarte-shell-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -6,13 +6,27 @@ const APP_SHELL = [
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",
-  "/icons/apple-touch-icon.png"
+  "/icons/apple-touch-icon.png",
+  "/ocr/worker.min.js",
+  "/ocr/tesseract-core-simd-lstm.wasm.js",
+  "/ocr/tesseract-core-simd-lstm.wasm",
+  "/ocr/deu.traineddata",
+  "/ocr/eng.traineddata",
+  "/ocr/vie.traineddata"
 ];
 
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(APP_SHELL))
+      .then(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const index = await cache.match("/index.html");
+        const html = await index.text();
+        const assets = [...html.matchAll(/(?:src|href)=["']([^"']*\/assets\/[^"']+)["']/g)]
+          .map(([, path]) => path);
+        if (assets.length) await cache.addAll(assets);
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -33,8 +47,11 @@ self.addEventListener("fetch", event => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then(response => {
-          if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put("/index.html", response.clone()));
+        .then(async response => {
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put("/index.html", response.clone());
+          }
           return response;
         })
         .catch(async () => (await caches.match(request)) || (await caches.match("/index.html")))
@@ -42,7 +59,11 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  if (url.pathname.startsWith("/assets/") || APP_SHELL.includes(url.pathname)) {
+  if (
+    url.pathname.startsWith("/assets/") ||
+    url.pathname.startsWith("/ocr/") ||
+    APP_SHELL.includes(url.pathname)
+  ) {
     event.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached;

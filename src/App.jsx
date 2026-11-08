@@ -533,7 +533,13 @@ function App() {
     toast(`Đang nhận diện ${selectedFiles.length} ảnh...`);
     let worker;
     try {
-      worker = await createWorker("deu+eng+vie");
+      worker = await createWorker("deu+eng+vie", undefined, {
+        workerBlobURL: false,
+        workerPath: "/ocr/worker.min.js",
+        corePath: "/ocr",
+        langPath: "/ocr",
+        gzip: false,
+      });
       const allRows = [];
       const recognizedTexts = [];
       for (let index = 0; index < selectedFiles.length; index += 1) {

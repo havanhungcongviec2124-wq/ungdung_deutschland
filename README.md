@@ -32,7 +32,7 @@ npm run preview
    - **Windows:** mở bằng Edge hoặc Chrome → biểu tượng cài đặt trên thanh địa chỉ hoặc menu → **Cài đặt WortKarte**.
 4. Chia sẻ đường dẫn HTTPS đó để người khác mở và cài ứng dụng.
 
-Ứng dụng là PWA nên không cần đăng qua App Store hoặc Play Store. Lần đầu mở cần có Internet để tải ứng dụng; sau đó phần giao diện được cache để dùng offline. Nhận diện ảnh/OCR có thể cần Internet để tải dữ liệu ngôn ngữ lần đầu. Thẻ và tiến độ vẫn lưu riêng trong trình duyệt của từng thiết bị, không tự chuyển sang máy người khác.
+Ứng dụng là PWA nên không cần đăng qua App Store hoặc Play Store. Hãy mở ứng dụng bằng Internet ít nhất một lần để cài service worker và tải cache (bao gồm giao diện, mã chạy và dữ liệu OCR). Sau đó có thể mở từ màn hình chính, tạo/sửa/ôn thẻ và nhận diện ảnh mà không cần Wi-Fi hay mạng di động. Thẻ và tiến độ vẫn lưu riêng trong trình duyệt của từng thiết bị, không tự chuyển sang máy người khác. Cập nhật ứng dụng cần kết nối Internet.
 
 ## 5. Cách nhập dữ liệu
 Dán mỗi dòng một từ theo định dạng:
