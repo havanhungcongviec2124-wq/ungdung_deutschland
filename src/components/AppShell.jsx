@@ -223,7 +223,7 @@ function FolderListItem({
           >
             <span
               className="folder-dot"
-              style={{ background: folder.color || "#6d5dfc" }}
+              style={{ background: selected ? "#13a88a" : "#6d5dfc" }}
             />
           </button>
           <button
