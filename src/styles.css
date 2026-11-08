@@ -115,21 +115,18 @@ button { cursor: pointer; }
   background: #fff0f1;
 }
 .folder-swipe-track {
-  display: flex;
-  width: calc(100% + 116px);
-  transform: translateX(-116px);
-  transition: transform .18s ease;
+  position: relative;
 }
-.folder-swipe-open .folder-swipe-track { transform: translateX(0); }
 .folder-actions {
+  position: absolute;
+  inset: 0 auto 0 0;
   width: 116px;
-  min-width: 116px;
   display: flex;
 }
 .folder-rename-action,
 .folder-delete-action {
   width: 58px;
-  min-width: 58px;
+  flex: 0 0 58px;
   display: grid;
   place-items: center;
   border: 0;
@@ -143,15 +140,18 @@ button { cursor: pointer; }
   color: #c84958;
 }
 .folder-item {
+  position: relative;
+  width: 100%;
   min-width: 0;
-  flex: 1;
   display: flex;
   align-items: center;
-  background: transparent;
+  background: #f6f5ff;
   border-radius: 9px;
   color: #666b80;
   text-align: left;
+  transition: transform .18s ease;
 }
+.folder-swipe-open .folder-item { transform: translateX(116px); }
 .folder-dot-toggle {
   width: 40px;
   min-width: 40px;
@@ -180,7 +180,7 @@ button { cursor: pointer; }
   font-size: 12px;
   cursor: pointer;
 }
-.folder-item.selected { background: #f6f5ff; color: #5e51df; }
+.folder-item.selected { color: #5e51df; }
 .folder-dot {
   width: 10px;
   height: 10px;
