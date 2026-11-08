@@ -5,6 +5,7 @@ import {
   Layers3,
   Pencil,
   Plus,
+  Share2,
   Save,
   Search,
   Trash2,
@@ -204,6 +205,8 @@ export function FolderOverviewPage({
   duplicateWordGroups,
   duplicateCardIds,
   duplicateExtraCount,
+  onShare,
+  sharingFolder,
   onBack,
   onRemoveDuplicates,
   editingCardId,
@@ -234,6 +237,13 @@ export function FolderOverviewPage({
           {folderCards.length} thẻ · {duplicateWordGroups.length} từ bị lặp ·{" "}
           {duplicateExtraCount} thẻ dư
         </span>
+        <button
+          className="btn-secondary"
+          onClick={onShare}
+          disabled={!folderCards.length || sharingFolder}
+        >
+          <Share2 size={17} /> Chia sẻ thư mục
+        </button>
         <button
           className="btn-primary"
           onClick={onRemoveDuplicates}

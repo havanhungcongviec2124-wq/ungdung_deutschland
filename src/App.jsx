@@ -8,6 +8,7 @@ import {
   Languages,
   Plus,
   RefreshCw,
+  Share2,
   Upload,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
   todayKey,
 } from "./lib/appData";
 import { createWorker } from "tesseract.js";
+import { createFolderShareUrl, readFolderShareToken } from "./lib/folderSharing";
 
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
@@ -58,6 +60,8 @@ function App() {
   const [modal, setModal] = useState("");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [sharedFolder, setSharedFolder] = useState(null);
 
   const [editingCardId, setEditingCardId] = useState(null);
   const [editingCardDraft, setEditingCardDraft] = useState(null);
@@ -78,6 +82,7 @@ function App() {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [knownIds, setKnownIds] = useState([]);
   const [unknownIds, setUnknownIds] = useState([]);
+  const [sharingFolder, setSharingFolder] = useState(false);
 
   const fileRef = useRef(null);
   const imageRef = useRef(null);
@@ -161,6 +166,26 @@ function App() {
   }, [folders, cards, activeFolder, reviewHistory, dailyGoals, canPersist]);
 
   useEffect(() => {
+    const match = window.location.hash.match(/^#share=(.+)$/);
+    if (!match) return;
+
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`
+    );
+    readFolderShareToken(match[1])
+      .then((share) => {
+        setSharedFolder(share);
+        setModal("shared-folder");
+      })
+      .catch((error) => {
+        console.error("Không thể mở link chia sẻ thư mục:", error);
+        setNotice(error.message);
+      });
+  }, []);
+
+  useEffect(() => {
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone === true;
@@ -193,6 +218,80 @@ function App() {
   function toast(message) {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2800);
+  }
+
+  async function shareCurrentFolder() {
+    if (!currentFolder || !folderCards.length) {
+      return toast("Thư mục cần có ít nhất một thẻ từ để chia sẻ.");
+    }
+    setSharingFolder(true);
+    try {
+      setShareUrl(await createFolderShareUrl(currentFolder, folderCards));
+      setModal("share-folder");
+    } catch (error) {
+      console.error("Không thể tạo link chia sẻ thư mục:", error);
+      toast(`Không thể tạo link chia sẻ: ${error.message}`);
+    } finally {
+      setSharingFolder(false);
+    }
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast("Đã sao chép link chia sẻ.");
+    } catch (error) {
+      console.error("Không thể sao chép link chia sẻ:", error);
+      toast("Không thể tự sao chép. Hãy chọn và sao chép link trong ô bên trên.");
+    }
+  }
+
+  async function sendShareLink() {
+    if (!navigator.share) {
+      return toast("Thiết bị này không hỗ trợ chia sẻ trực tiếp. Hãy sao chép link.");
+    }
+    try {
+      await navigator.share({ title: currentFolder?.name || "WortKarte", url: shareUrl });
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      console.error("Không thể chia sẻ link thư mục:", error);
+      toast(`Không thể chia sẻ link: ${error.message}`);
+    }
+  }
+
+  function importSharedFolder() {
+    if (!sharedFolder) return;
+    const baseName = sharedFolder.folder.name;
+    const existingNames = new Set(folders.map((folder) => folder.name.toLocaleLowerCase()));
+    let name = baseName;
+    let suffix = 2;
+    while (existingNames.has(name.toLocaleLowerCase())) {
+      name = `${baseName} (${suffix})`;
+      suffix += 1;
+    }
+
+    const folderId = crypto.randomUUID();
+    const newFolder = {
+      id: folderId,
+      name,
+      color: sharedFolder.folder.color || colors[folders.length % colors.length],
+    };
+    const newCards = sharedFolder.cards.map((card) => ({
+      ...card,
+      id: crypto.randomUUID(),
+      folder_id: folderId,
+      known: false,
+      created_at: new Date().toISOString(),
+    }));
+
+    setCanPersist(true);
+    setFolders((previous) => [...previous, newFolder]);
+    setCards((previous) => [...newCards, ...previous]);
+    setActiveFolder(folderId);
+    setView("cards");
+    setSharedFolder(null);
+    setModal("");
+    toast(`Đã thêm thư mục "${name}" với ${newCards.length} thẻ vào thiết bị này.`);
   }
 
   async function updateApp() {
@@ -689,6 +788,8 @@ function App() {
             duplicateWordGroups={duplicateWordGroups}
             duplicateCardIds={duplicateCardIds}
             duplicateExtraCount={duplicateExtraCount}
+            onShare={shareCurrentFolder}
+            sharingFolder={sharingFolder}
             onBack={() => setView("cards")}
             onRemoveDuplicates={removeFolderDuplicates}
             editingCardId={editingCardId}
@@ -859,6 +960,70 @@ function App() {
             <button className="study-mode-option" onClick={() => startStudy("vi-to-de")}>
               <strong>Trắc nghiệm: Việt → Đức</strong>
               <span>Hiện nghĩa tiếng Việt, chọn đáp án từ tiếng Đức.</span>
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {modal === "share-folder" && (
+        <Modal title="Chia sẻ thư mục từ vựng" onClose={() => setModal("")}>
+          <div className="share-folder-content">
+            <p>
+              Link này chứa bản sao của {currentFolder?.name} ({folderCards.length} thẻ).
+              Ai có link đều có thể xem và thêm bộ từ này vào ứng dụng của họ.
+            </p>
+            <p className="small">
+              Dữ liệu trong link chỉ được nén và mã hóa để tạo URL, không được mã hóa bảo mật.
+              Đừng chia sẻ thẻ có thông tin riêng tư.
+            </p>
+            <textarea
+              className="share-link-input"
+              aria-label="Link chia sẻ"
+              readOnly
+              value={shareUrl}
+              onFocus={(event) => event.target.select()}
+              rows="4"
+            />
+            <div className="heading-actions">
+              <button className="btn-secondary" onClick={copyShareLink}>
+                <Share2 size={16} /> Sao chép link
+              </button>
+              {typeof navigator.share === "function" && (
+                <button className="btn-primary" onClick={sendShareLink}>
+                  <Share2 size={16} /> Chia sẻ...
+                </button>
+              )}
+            </div>
+            <p className="small">
+              Đây là bản sao tại thời điểm tạo link; các thay đổi sau này không tự cập nhật.
+            </p>
+          </div>
+        </Modal>
+      )}
+
+      {modal === "shared-folder" && sharedFolder && (
+        <Modal title="Thêm bộ từ được chia sẻ" onClose={() => setModal("")}>
+          <div className="share-folder-content">
+            <p>
+              <strong>{sharedFolder.folder.name}</strong> có {sharedFolder.cards.length} thẻ.
+              Thêm sẽ tạo một thư mục riêng trong dữ liệu trên thiết bị của bạn.
+            </p>
+            <ul className="shared-card-preview">
+              {sharedFolder.cards.slice(0, 5).map((card, index) => (
+                <li key={`${card.front}-${index}`}>
+                  <strong>{card.front}</strong> — {card.back}
+                </li>
+              ))}
+              {sharedFolder.cards.length > 5 && (
+                <li>và {sharedFolder.cards.length - 5} thẻ khác...</li>
+              )}
+            </ul>
+            <p className="small">
+              Link chia sẻ là bản sao. Các thẻ sẽ được lưu trên thiết bị này và có thể ôn tập
+              ngay cả khi không có mạng.
+            </p>
+            <button className="btn-primary full" onClick={importSharedFolder}>
+              <Plus size={17} /> Thêm {sharedFolder.cards.length} thẻ vào ứng dụng
             </button>
           </div>
         </Modal>

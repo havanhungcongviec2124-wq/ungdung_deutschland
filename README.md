@@ -54,5 +54,6 @@ stattfinden | | diễn ra
 - Mỗi thư mục có thống kê ôn tập theo ngày, mục tiêu mặc định 10 thẻ/ngày (có thể chỉnh), số câu đúng/cần ôn lại và chuỗi ngày hoàn thành mục tiêu.
 - Nút loa phát âm từ tiếng Đức bằng giọng đọc có sẵn của trình duyệt/thiết bị, miễn phí và không gửi dữ liệu ra ngoài. Danh sách giọng đọc tùy thuộc vào hệ điều hành.
 - Dữ liệu không được đồng bộ giữa các máy hoặc trình duyệt. Xóa dữ liệu trang web trong trình duyệt có thể xóa các thẻ đã lưu.
+- Trong mục **Tổng các từ vựng**, chọn **Chia sẻ thư mục** để tạo link chứa bản sao các thẻ. Người nhận mở link, xem trước rồi thêm thư mục vào dữ liệu riêng trên máy của họ; nội dung link không tự cập nhật khi bạn sửa bộ từ. Link dùng nén dữ liệu, không mã hóa bảo mật, nên không chia sẻ thẻ có thông tin riêng tư.
 - Nhận diện chữ và tách các hàng/cột của bảng ảnh thực hiện ngay trong trình duyệt bằng Tesseract OCR; ảnh không được gửi lên dịch vụ AI bên ngoài. Luôn kiểm tra bảng xem trước trước khi lưu.
 - Có thể chọn nhiều ảnh cùng lúc; ứng dụng nhận diện lần lượt rồi gộp các dòng vào một bảng xem trước.
