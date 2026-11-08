@@ -182,11 +182,7 @@ function FolderListItem({
   onDelete,
   onRename,
 }) {
-  function handleClick(event) {
-    if (event.target.closest(".folder-dot")) {
-      onOpenChange(!open);
-      return;
-    }
+  function handleFolderSelect() {
     if (open) {
       onOpenChange(false);
       return;
@@ -196,38 +192,50 @@ function FolderListItem({
 
   return (
     <div className={`folder-swipe-row ${open ? "folder-swipe-open" : ""}`}>
-      <div className="folder-actions">
-        <button
-          className="folder-rename-action"
-          aria-label={`Đổi tên thư mục ${folder.name}`}
-          title={`Đổi tên thư mục ${folder.name}`}
-          onClick={onRename}
-          tabIndex={open ? 0 : -1}
-        >
-          <Pencil size={17} />
-        </button>
-        <button
-          className="folder-delete-action"
-          aria-label={`Xóa thư mục ${folder.name}`}
-          title={`Xóa thư mục ${folder.name}`}
-          onClick={onDelete}
-          tabIndex={open ? 0 : -1}
-        >
-          <Trash2 size={17} />
-        </button>
+      <div className="folder-swipe-track">
+        <div className="folder-actions">
+          <button
+            className="folder-rename-action"
+            aria-label={`Đổi tên thư mục ${folder.name}`}
+            title={`Đổi tên thư mục ${folder.name}`}
+            onClick={onRename}
+            tabIndex={open ? 0 : -1}
+          >
+            <Pencil size={17} />
+          </button>
+          <button
+            className="folder-delete-action"
+            aria-label={`Xóa thư mục ${folder.name}`}
+            title={`Xóa thư mục ${folder.name}`}
+            onClick={onDelete}
+            tabIndex={open ? 0 : -1}
+          >
+            <Trash2 size={17} />
+          </button>
+        </div>
+        <div className={`folder-item ${selected ? "selected" : ""}`}>
+          <button
+            className="folder-dot-toggle"
+            onClick={() => onOpenChange(!open)}
+            aria-label={`${open ? "Ẩn" : "Hiện"} thao tác thư mục ${folder.name}`}
+            aria-expanded={open}
+            title="Hiện đổi tên và xóa"
+          >
+            <span
+              className="folder-dot"
+              style={{ background: folder.color || "#6d5dfc" }}
+            />
+          </button>
+          <button
+            className="folder-select"
+            onClick={handleFolderSelect}
+            aria-label={`${folder.name}, ${count} thẻ`}
+          >
+            <span className="folder-name">{folder.name}</span>
+            <span className="folder-total">{count}</span>
+          </button>
+        </div>
       </div>
-      <button
-        className={`folder-item ${selected ? "selected" : ""}`}
-        onClick={handleClick}
-        aria-label={`${folder.name}, ${count} thẻ`}
-      >
-        <span
-          className="folder-dot"
-          style={{ background: folder.color || "#6d5dfc" }}
-        />
-        <span className="folder-name">{folder.name}</span>
-        <span className="folder-total">{count}</span>
-      </button>
     </div>
   );
 }
