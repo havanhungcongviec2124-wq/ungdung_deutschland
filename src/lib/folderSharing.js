@@ -1,6 +1,7 @@
 const MAX_SHARE_SIZE = 5 * 1024 * 1024;
 const MAX_SHARE_TOKEN_LENGTH = 1024 * 1024;
 const MAX_CARDS = 10000;
+const SHARE_WEB_ORIGIN = "https://ungdung-deutschland.havanhungcongviec2124.workers.dev";
 
 function bytesToBase64Url(bytes) {
   let binary = "";
@@ -80,7 +81,11 @@ export async function createFolderShareUrl(folder, cards) {
     throw new Error("Link chia sẻ quá dài. Hãy chia thư mục thành các bộ nhỏ hơn.");
   }
 
-  const url = new URL(window.location.href);
+  const shareUrl =
+    window.location.protocol === "app:"
+      ? `${SHARE_WEB_ORIGIN}/`
+      : window.location.href;
+  const url = new URL(shareUrl);
   url.hash = `share=${token}`;
   return url.href;
 }

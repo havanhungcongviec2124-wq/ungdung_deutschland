@@ -189,7 +189,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const nativeMacApp = window.location.protocol === "app:";
     const standalone =
+      nativeMacApp ||
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone === true;
     setIsInstalled(standalone);

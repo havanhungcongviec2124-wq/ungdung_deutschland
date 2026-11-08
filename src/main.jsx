@@ -3,7 +3,11 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
 
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+if (
+  import.meta.env.PROD &&
+  window.location.protocol === "https:" &&
+  "serviceWorker" in navigator
+) {
   navigator.serviceWorker.register("/sw.js")
     .catch(error => console.error("Không thể bật chế độ ứng dụng ngoại tuyến:", error));
 }
