@@ -43,6 +43,7 @@ import StudyPage from "./components/StudyPage";
 import { CardsPage, FolderOverviewPage } from "./components/CardsPage";
 import ImportPreviewPage from "./components/ImportPreviewPage";
 import ResultPage from "./components/ResultPage";
+import SentencePage from "./components/SentencePage";
 import Modal from "./components/Modal";
 import AppShell from "./components/AppShell";
 
@@ -623,6 +624,7 @@ function App() {
     if (!list.length) return toast("Thư mục này chưa có thẻ từ.");
     if (
       mode !== "flashcard" &&
+      mode !== "sentence" &&
       new Set(
         list
           .map((card) => normalizeQuizAnswer(quizAnswer(card, mode)))
@@ -975,21 +977,33 @@ function App() {
         )}
 
         {view === "study" && studyCards[studyIndex] && (
-          <StudyPage
-            card={studyCards[studyIndex]}
-            index={studyIndex}
-            total={studyCards.length}
-            mode={studyMode}
-            options={quizOptions[studyIndex] || []}
-            selectedAnswer={selectedAnswer}
-            flipped={flipped}
-            setFlipped={setFlipped}
-            onAnswer={answerStudy}
-            onChooseAnswer={chooseQuizAnswer}
-            onContinue={nextStudyCard}
-            onSpeak={speakGerman}
-            onExit={() => setView("cards")}
-          />
+          studyMode === "sentence" ? (
+            <SentencePage
+              card={studyCards[studyIndex]}
+              index={studyIndex}
+              total={studyCards.length}
+              onResult={recordStudyAnswer}
+              onNext={nextStudyCard}
+              onSpeak={speakGerman}
+              onExit={() => setView("cards")}
+            />
+          ) : (
+            <StudyPage
+              card={studyCards[studyIndex]}
+              index={studyIndex}
+              total={studyCards.length}
+              mode={studyMode}
+              options={quizOptions[studyIndex] || []}
+              selectedAnswer={selectedAnswer}
+              flipped={flipped}
+              setFlipped={setFlipped}
+              onAnswer={answerStudy}
+              onChooseAnswer={chooseQuizAnswer}
+              onContinue={nextStudyCard}
+              onSpeak={speakGerman}
+              onExit={() => setView("cards")}
+            />
+          )
         )}
 
         {view === "result" && (
@@ -1201,6 +1215,12 @@ function App() {
             <button className="study-mode-option" onClick={() => startStudy("vi-to-de")}>
               <strong>Trắc nghiệm: Việt → Đức</strong>
               <span>Hiện nghĩa tiếng Việt, chọn đáp án từ tiếng Đức.</span>
+            </button>
+            <button className="study-mode-option" onClick={() => startStudy("sentence")}>
+              <strong>Đặt câu với AI</strong>
+              <span>
+                Gõ câu hoặc xếp từ; AI kiểm tra ngữ pháp, sửa lỗi và giải thích chi tiết.
+              </span>
             </button>
           </div>
         </Modal>

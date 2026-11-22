@@ -1304,6 +1304,144 @@ button { cursor: pointer; }
 .study-limit-field small { font-size: 10px; color: #9297a9; line-height: 1.5; }
 .study-limit-field small.study-limit-error { color: #e16b78; }
 
+/* Sentence practice with AI */
+.sentence-screen .spin { animation: spin 1s linear infinite; }
+.sentence-content { display: grid; justify-items: center; gap: 14px; }
+.sentence-word-card {
+  width: min(100%, 560px);
+  padding: 18px 22px;
+  border: 1px solid #eff0f5;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 26px #25264a0a;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.sentence-word-card strong { font-size: 25px; color: #292d43; }
+.sentence-plural { color: #8e93a5; font-size: 13px; }
+.sentence-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #eceef4;
+  border-radius: 10px;
+  background: #f6f6fa;
+}
+.sentence-tabs button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 14px;
+  background: transparent;
+  color: #7c8194;
+  font-size: 11px;
+  font-weight: 700;
+}
+.sentence-tabs button.active {
+  background: #fff;
+  color: #5b4ee0;
+  box-shadow: 0 2px 8px #25264a12;
+}
+.sentence-input-wrap { width: min(100%, 560px); display: grid; gap: 6px; justify-items: end; }
+.sentence-input-wrap textarea {
+  width: 100%;
+  border: 1px solid #e7e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #45495e;
+  outline: none;
+  resize: vertical;
+}
+.sentence-input-wrap textarea:focus { border-color: #b9b2ff; box-shadow: 0 0 0 3px #6d5dfc14; }
+.sentence-input-wrap small { color: #a2a6b5; font-size: 10px; }
+.sentence-arrange { width: min(100%, 560px); display: grid; gap: 12px; }
+.sentence-loading,
+.sentence-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid #eceef4;
+  border-radius: 12px;
+  background: #fafaff;
+  color: #7c8194;
+  font-size: 12px;
+}
+.sentence-error { border-color: #f5d6da; background: #fff7f8; color: #b8535f; }
+.sentence-error p { margin: 0; }
+.sentence-task {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid #eceef4;
+  border-radius: 12px;
+  background: #fafaff;
+  text-align: center;
+}
+.sentence-task strong { color: #45495e; font-size: 14px; }
+.sentence-task small { color: #9297a9; font-size: 11px; }
+.sentence-slots {
+  min-height: 58px;
+  padding: 10px;
+  border: 2px dashed #dcd8ff;
+  border-radius: 12px;
+  background: #faf9ff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.sentence-slots-empty { color: #a2a6b5; font-size: 11px; }
+.sentence-bank { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.sentence-token {
+  border: 1px solid #e7e8f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px 11px;
+  color: #45495e;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sentence-token:hover:not(:disabled) { border-color: #b9b2ff; background: #faf9ff; }
+.sentence-token:disabled { opacity: .35; cursor: not-allowed; }
+.selected-token {
+  border-color: #6d5dfc;
+  background: #6d5dfc;
+  color: #fff;
+}
+.selected-token:hover:not(:disabled) { background: #5b4ee0; }
+.selected-token:disabled { opacity: 1; cursor: pointer; }
+.sentence-clear { justify-self: center; }
+.sentence-submit { min-width: 210px; }
+.sentence-feedback {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #d8f0e7;
+  border-radius: 14px;
+  background: #f5fcf9;
+  text-align: left;
+}
+.sentence-feedback.incorrect { border-color: #f5d6da; background: #fff7f8; }
+.sentence-feedback-head { display: flex; align-items: center; gap: 8px; color: #159b78; }
+.sentence-feedback.incorrect .sentence-feedback-head { color: #d15665; }
+.sentence-feedback p { margin: 0; font-size: 12px; line-height: 1.6; color: #676c80; }
+.sentence-feedback em { color: #45495e; }
+.sentence-feedback strong { color: #292d43; }
+.sentence-explanation {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffffaa;
+}
+.inline-voice { width: 26px; height: 26px; vertical-align: middle; }
+.sentence-note { margin: 0; color: #a2a6b5; font-size: 10px; line-height: 1.5; }
+
 .quiz-prompt {
   width: min(100%, 560px);
   min-height: 145px;

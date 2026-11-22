@@ -1,0 +1,5 @@
+# AI chấm câu đặt câu (Google Gemini free tier).
+# Lấy key miễn phí tại https://aistudio.google.com/app/apikey
+# Sao chép file này thành .dev.vars rồi điền key của bạn.
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GEMINI_MODEL=gemini-3.8-flash

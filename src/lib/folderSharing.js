@@ -46,7 +46,7 @@ async function transformBytes(bytes, StreamType, sizeLimit) {
   return result;
 }
 
-function getShareApiOrigin() {
+export function getApiOrigin() {
   return window.location.protocol === "app:"
     ? SHARE_WEB_ORIGIN
     : window.location.origin;
@@ -63,7 +63,7 @@ function buildShareLink(hash) {
 }
 
 async function createShortShareUrl(token) {
-  const response = await fetch(`${getShareApiOrigin()}/api/shares`, {
+  const response = await fetch(`${getApiOrigin()}/api/shares`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token }),
@@ -88,7 +88,7 @@ async function readShortShareToken(code) {
   let response;
   try {
     response = await fetch(
-      `${getShareApiOrigin()}/api/shares/${encodeURIComponent(value)}`
+      `${getApiOrigin()}/api/shares/${encodeURIComponent(value)}`
     );
   } catch {
     throw new Error("Không thể mở link chia sẻ. Hãy kiểm tra kết nối mạng.");

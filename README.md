@@ -57,7 +57,7 @@ stattfinden | | diễn ra
 - Ảnh dùng OCR tiếng Đức/Anh/Việt bằng Tesseract.js. OCR có thể nhận sai cột, vì vậy luôn sửa bảng xem trước trước khi lưu.
 
 ## 7. Học tập và lưu trữ dữ liệu
-- Nút **Kiểm tra** cho phép chọn lật thẻ, trắc nghiệm Đức → Việt, hoặc trắc nghiệm Việt → Đức. Trắc nghiệm cần ít nhất 2 đáp án khác nhau trong bộ thẻ.
+- Nút **Kiểm tra** cho phép chọn lật thẻ, trắc nghiệm Đức → Việt, trắc nghiệm Việt → Đức hoặc **Đặt câu với AI**. Trắc nghiệm cần ít nhất 2 đáp án khác nhau trong bộ thẻ; có thể nhập số thẻ muốn làm, thẻ được chọn ngẫu nhiên và không trùng nhau. Chế độ đặt câu gõ câu hoặc xếp từ, AI chấm ngữ pháp và sửa lỗi (xem mục 8).
 - Nút **Lưu tất cả** lưu thẻ vào `localStorage` của trình duyệt trên máy này; thẻ và thư mục vẫn còn sau khi tải lại hoặc đóng/mở trang.
 - Khi nhập, ứng dụng báo các từ đã có trong thư mục đang chọn và chỉ lưu từ mới.
 - Trong từng thư mục, mục **Tổng các từ vựng** hiển thị thẻ dạng bảng, cho sửa từ/số nhiều/nghĩa, tô đỏ các từ trùng và cho phép xóa bản dư để giữ lại một thẻ cho mỗi từ.
@@ -67,3 +67,31 @@ stattfinden | | diễn ra
 - Trong mục **Tổng các từ vựng**, chọn **Chia sẻ thư mục** để tạo link chứa bản sao các thẻ. Người nhận mở link, xem trước rồi thêm thư mục vào dữ liệu riêng trên máy của họ; nội dung link không tự cập nhật khi bạn sửa bộ từ. Dữ liệu được nén và lưu trong Cloudflare KV, link tạo ra chỉ còn một mã ngắn dạng `.../#s=abc123XYZ`. Nếu chưa cấu hình KV hoặc đang ngoại tuyến, ứng dụng tự quay về link dài chứa dữ liệu. Link không mã hóa bảo mật, nên không chia sẻ thẻ có thông tin riêng tư.
 - Nhận diện chữ và tách các hàng/cột của bảng ảnh thực hiện ngay trong trình duyệt bằng Tesseract OCR; ảnh không được gửi lên dịch vụ AI bên ngoài. Luôn kiểm tra bảng xem trước trước khi lưu.
 - Có thể chọn nhiều ảnh cùng lúc; ứng dụng nhận diện lần lượt rồi gộp các dòng vào một bảng xem trước.
+
+## 8. Chấm câu đặt câu bằng AI miễn phí (Google Gemini)
+Chế độ **Đặt câu với AI** gửi từ vựng và câu của bạn tới Gemini (free tier) qua Worker của ứng dụng. AI trả về đúng/sai, câu đã sửa và giải thích ngắn bằng tiếng Việt. Có hai cách làm bài: gõ câu tự do hoặc xếp các từ đã xáo trộn theo thứ tự đúng.
+
+Chuẩn bị key (miễn phí):
+1. Truy cập https://aistudio.google.com/app/apikey → đăng nhập Google → **Create API key**.
+2. Tạo file `.dev.vars` ở thư mục gốc dự án (file này đã được `.gitignore`, không bao giờ commit key):
+   ```text
+   GEMINI_API_KEY=key_cua_ban
+   GEMINI_MODEL=gemini-3.8-flash
+   ```
+   Có thể copy từ `.dev.vars.example`. Dòng `GEMINI_MODEL` là tùy chọn; nếu bỏ trống Worker dùng `gemini-3.8-flash`. Khi Google đổi tên model, Worker tự thử thêm `gemini-flash-latest` và `gemini-3.5-flash`, với thời gian chờ tối đa 12 giây cho mỗi model.
+3. Khởi động lại `npm run dev`. Nếu quên khởi động lại, Worker sẽ báo “AI chưa được cấu hình”.
+
+Khi deploy lên Cloudflare (để bản web và ứng dụng Mac dùng được):
+```bash
+npx wrangler secret put GEMINI_API_KEY
+npx wrangler secret put GEMINI_MODEL   # tùy chọn
+npm run deploy
+```
+
+Lưu ý:
+- API key được giữ ở phía Worker, không nhúng vào giao diện hay localStorage. Không đặt key vào biến `VITE_*` vì trình duyệt có thể đọc được.
+- Chế độ này **cần Internet**. Các chế độ lật thẻ, trắc nghiệm và OCR vẫn dùng được ngoại tuyến. Nếu AI chấm lỗi nhưng câu mẫu đã được tạo, chế độ xếp từ vẫn tự so khớp câu để tiếp tục bài.
+- Free tier có giới hạn số yêu cầu/phút và số yêu cầu/ngày; Worker giới hạn 15 yêu cầu/phút mỗi địa chỉ IP. Khi quá tải, ứng dụng sẽ báo bạn đợi một chút.
+- Nội dung câu và từ vựng được gửi tới Google để chấm. Đừng dùng chế độ này với dữ liệu riêng tư.
+- Nếu bạn từng dán key vào nơi công khai (ví dụ trò chuyện, screenshot), hãy xóa key đó trong Google AI Studio và tạo key mới.
+
