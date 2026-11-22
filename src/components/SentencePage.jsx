@@ -44,11 +44,11 @@ export default function SentencePage({
   const [feedback, setFeedback] = useState(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
-  const gradedRef = useRef(false);
+  const checkRunRef = useRef(0);
   const promptRequestedRef = useRef(false);
 
   useEffect(() => {
-    gradedRef.current = false;
+    checkRunRef.current += 1;
     promptRequestedRef.current = false;
     setTab("type");
     setSentence("");
@@ -93,22 +93,28 @@ export default function SentencePage({
   const activeSentence = tab === "type" ? sentence.trim() : assembled.trim();
   const canSubmit = Boolean(activeSentence) && !checking && !feedback;
 
-  function finish(correct) {
-    if (gradedRef.current) return;
-    gradedRef.current = true;
-    onResult(correct);
+  function handleTabChange(nextTab) {
+    if (nextTab === tab) return;
+    // Bỏ kết quả của tab trước để tab kia có thể làm và chấm lại cùng một từ.
+    checkRunRef.current += 1;
+    setChecking(false);
+    setCheckError("");
+    setFeedback(null);
+    setTab(nextTab);
   }
 
   async function handleCheck() {
     const value = activeSentence;
     if (!value || checking || feedback) return;
+    const run = checkRunRef.current;
     setChecking(true);
     setCheckError("");
 
     try {
       const result = await checkSentence(card, value, activeLevel);
+      if (run !== checkRunRef.current) return;
       setFeedback({ ...result, source: "ai", userSentence: value });
-      finish(result.correct);
+      onResult(result.correct);
     } catch (error) {
       // Xếp từ vẫn chấm được ngoại tuyến nếu đã có câu mẫu từ AI.
       if (
@@ -116,6 +122,7 @@ export default function SentencePage({
         prompt &&
         normalizeSentence(value) === normalizeSentence(prompt.sentence)
       ) {
+        if (run !== checkRunRef.current) return;
         setFeedback({
           correct: true,
           corrected: prompt.sentence,
@@ -123,12 +130,12 @@ export default function SentencePage({
           source: "local",
           userSentence: value,
         });
-        finish(true);
-      } else {
+        onResult(true);
+      } else if (run === checkRunRef.current) {
         setCheckError(error.message);
       }
     } finally {
-      setChecking(false);
+      if (run === checkRunRef.current) setChecking(false);
     }
   }
 
@@ -173,7 +180,7 @@ export default function SentencePage({
             role="tab"
             aria-selected={tab === "type"}
             className={tab === "type" ? "active" : ""}
-            onClick={() => setTab("type")}
+            onClick={() => handleTabChange("type")}
           >
             Gõ câu tự do
           </button>
@@ -182,7 +189,7 @@ export default function SentencePage({
             role="tab"
             aria-selected={tab === "arrange"}
             className={tab === "arrange" ? "active" : ""}
-            onClick={() => setTab("arrange")}
+            onClick={() => handleTabChange("arrange")}
           >
             Xếp từ thành câu
           </button>
@@ -323,6 +330,9 @@ export default function SentencePage({
               </button>
             </p>
             {feedback.explanation && <p className="sentence-explanation">{feedback.explanation}</p>}
+            <small className="sentence-retry-note">
+              Muốn thử cách khác? Chuyển sang tab kia để làm lại; hoặc bấm „Câu tiếp theo“ để bỏ qua.
+            </small>
             <button className="btn-primary full" onClick={onNext}>
               {index === total - 1 ? "Xem kết quả" : "Câu tiếp theo"}{" "}
               <ChevronRight size={17} />

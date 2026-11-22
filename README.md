@@ -69,7 +69,7 @@ stattfinden | | diễn ra
 - Có thể chọn nhiều ảnh cùng lúc; ứng dụng nhận diện lần lượt rồi gộp các dòng vào một bảng xem trước.
 
 ## 8. Chấm câu đặt câu bằng AI miễn phí (Google Gemini)
-Chế độ **Đặt câu với AI** gửi từ vựng, trình độ bạn đã chọn và câu của bạn tới Gemini (free tier) qua Worker của ứng dụng. Trình độ (A1.1 đến B2.2) được dùng cho cả câu mẫu lẫn phần chấm điểm: AI chỉ bắt lỗi các cấu trúc phù hợp, không trừ điểm vì bạn chưa dùng cấu trúc cao hơn. AI trả về đúng/sai, câu đã sửa và giải thích ngắn bằng tiếng Việt. Có hai cách làm bài: gõ câu tự do hoặc xếp các từ đã xáo trộn theo thứ tự đúng. Trình độ chọn lần trước được lưu trên thiết bị để lần sau không phải chọn lại, nhưng bạn luôn có thể đổi trong bước trước khi bắt đầu.
+Chế độ **Đặt câu với AI** gửi từ vựng, trình độ bạn đã chọn và câu của bạn tới Gemini (free tier) qua Worker của ứng dụng. Trình độ (A1.1 đến B2.2) được dùng cho cả câu mẫu lẫn phần chấm điểm: AI chỉ bắt lỗi các cấu trúc phù hợp, không trừ điểm vì bạn chưa dùng cấu trúc cao hơn. AI trả về đúng/sai, câu đã sửa và giải thích ngắn bằng tiếng Việt. Có hai cách làm bài: gõ câu tự do hoặc xếp các từ đã xáo trộn theo thứ tự đúng. Sau khi AI chấm, bạn có thể chuyển sang tab kia để làm lại cùng một từ, hoặc bấm **Câu tiếp theo** nếu không muốn làm nữa; chỉ kết quả gần nhất của mỗi từ được tính vào thống kê. Trình độ chọn lần trước được lưu trên thiết bị để lần sau không phải chọn lại, nhưng bạn luôn có thể đổi trong bước trước khi bắt đầu.
 
 Chuẩn bị key (miễn phí):
 1. Truy cập https://aistudio.google.com/app/apikey → đăng nhập Google → **Create API key**.

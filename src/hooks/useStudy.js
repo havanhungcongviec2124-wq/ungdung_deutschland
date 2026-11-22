@@ -111,8 +111,17 @@ export function useStudy({ library, toast, setModal, setView }) {
   function recordStudyAnswer(known) {
     const card = studyCards[studyIndex];
     if (!card) return;
-    if (known) setKnownIds((previous) => [...previous, card.id]);
-    else setUnknownIds((previous) => [...previous, card.id]);
+    // Cùng một thẻ có thể được làm lại ở tab khác: chỉ giữ kết quả mới nhất.
+    setKnownIds((previous) =>
+      known
+        ? [...previous.filter((id) => id !== card.id), card.id]
+        : previous.filter((id) => id !== card.id)
+    );
+    setUnknownIds((previous) =>
+      known
+        ? previous.filter((id) => id !== card.id)
+        : [...previous.filter((id) => id !== card.id), card.id]
+    );
     library.markKnown(card, known);
     const day = todayKey();
     library.setReviewHistory((previous) => ({

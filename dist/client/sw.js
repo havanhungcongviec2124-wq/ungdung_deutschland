@@ -1,4 +1,4 @@
-const CACHE_NAME = "wortkarte-shell-v2";
+const CACHE_NAME = "wortkarte-shell-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -68,7 +68,14 @@ self.addEventListener("fetch", event => {
       caches.match(request).then(cached => {
         if (cached) return cached;
         return fetch(request).then(response => {
-          if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
+          if (response.ok) {
+            // Clone ngay trước khi trả response: clone trong callback có thể bị
+            // "Response body is already used" khi trình duyệt đã đọc body.
+            const copy = response.clone();
+            event.waitUntil(
+              caches.open(CACHE_NAME).then(cache => cache.put(request, copy))
+            );
+          }
           return response;
         });
       })

@@ -100,11 +100,14 @@ async function postAi(path, payload) {
     window.clearTimeout(timer);
   }
 
+  const raw = await response.text();
   let body;
   try {
-    body = await response.json();
+    body = JSON.parse(raw);
   } catch {
-    throw new Error("Dịch vụ AI trả về dữ liệu không hợp lệ.");
+    throw new Error(
+      `Dịch vụ AI trả về dữ liệu không hợp lệ (HTTP ${response.status}). Hãy thử lại.`
+    );
   }
   if (!response.ok) {
     throw new Error(body?.error || `Dịch vụ AI lỗi (${response.status}).`);
