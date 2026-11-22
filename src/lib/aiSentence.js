@@ -1,7 +1,7 @@
 import { getApiOrigin } from "./folderSharing";
 import { shuffle } from "./appData";
 
-const AI_TIMEOUT_MS = 60000;
+const AI_TIMEOUT_MS = 25000;
 const AI_LEVEL_STORAGE_KEY = "wortkarte.ai.sentenceLevel";
 export const DEFAULT_AI_LEVEL = "A1.1";
 

@@ -78,7 +78,9 @@ Chuẩn bị key (miễn phí):
    GEMINI_API_KEY=key_cua_ban
    GEMINI_MODEL=gemini-3.8-flash
    ```
-   Có thể copy từ `.dev.vars.example`. Dòng `GEMINI_MODEL` là tùy chọn; nếu bỏ trống Worker dùng `gemini-3.8-flash`. Khi Google đổi tên model, Worker tự thử thêm `gemini-flash-latest` và `gemini-3.5-flash`, với thời gian chờ tối đa 12 giây cho mỗi model. Nếu Gemini không dùng được (ví dụ Google chặn region của Cloudflare), Worker tự chuyển sang Cloudflare Workers AI (model mặc định `@cf/mistralai/mistral-small-3.1-24b-instruct`, đổi được bằng secret `WORKERS_AI_MODEL`).
+   Có thể copy từ `.dev.vars.example`. Dòng `GEMINI_MODEL` là tùy chọn; nếu bỏ trống Worker dùng `gemini-3.8-flash`. Khi Google đổi tên model, Worker tự thử thêm `gemini-flash-latest` và `gemini-3.5-flash`, với thời gian chờ tối đa 7 giây. Nếu Gemini không dùng được (ví dụ Google chặn region của Cloudflare), Worker tự chuyển sang Cloudflare Workers AI (model mặc định `@cf/mistralai/mistral-small-3.1-24b-instruct`, đổi được bằng secret `WORKERS_AI_MODEL`).
+
+ Để phản hồi nhanh hơn: câu mẫu được tải ngầm ngay khi vào thẻ (trong lúc bạn gõ câu), nên khi bấm sang **Xếp từ thành câu** thường đã có sẵn. Worker còn lưu kết quả đã chấm vào KV theo nội dung (30 ngày): học lại cùng một từ, thử lại cùng một câu hoặc bấm qua lại giữa hai tab sẽ gần như tức thì và không tốn lượt AI. Lần đầu cho một từ hoặc câu mới vẫn cần ~3 giây để gọi AI.
 3. Khởi động lại `npm run dev`. Nếu quên khởi động lại, Worker sẽ báo “AI chưa được cấu hình”.
 
 Khi deploy lên Cloudflare (để bản web và ứng dụng Mac dùng được):

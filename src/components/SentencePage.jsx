@@ -61,8 +61,10 @@ export default function SentencePage({
     setCheckError("");
   }, [card.id, activeLevel]);
 
+  // Tải câu mẫu ngay khi vào thẻ (chạy ngầm trong lúc người dùng gõ câu) để
+  // khi bấm sang "Xếp từ thành câu" thường đã có sẵn, không phải chờ AI.
   useEffect(() => {
-    if (tab !== "arrange" || prompt || promptRequestedRef.current) return undefined;
+    if (prompt || promptRequestedRef.current) return undefined;
     promptRequestedRef.current = true;
     let cancelled = false;
     setPromptLoading(true);
@@ -82,7 +84,7 @@ export default function SentencePage({
     return () => {
       cancelled = true;
     };
-  }, [tab, card.id, activeLevel, prompt, promptRetry]);
+  }, [card.id, activeLevel, prompt, promptRetry]);
 
   const assembled = prompt
     ? selected
@@ -341,7 +343,8 @@ export default function SentencePage({
         )}
 
         <p className="sentence-note">
-          Chấm bằng Gemini AI · cần Internet. Từ vựng và câu của bạn được gửi tới Google để kiểm tra.
+          Chấm bằng AI · cần Internet. Từ vựng và câu của bạn được gửi tới dịch vụ AI để kiểm tra;
+          kết quả đã chấm được lưu tạm để lần sau phản hồi nhanh hơn.
         </p>
       </div>
     </div>
