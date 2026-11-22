@@ -65,17 +65,28 @@ export function useStudy({ library, toast, setModal, setView }) {
     setModal("sentence-level");
   }
 
+  function openQuestionLevelSetup() {
+    if (!studySourceCards.length) return openStudySetup();
+    setModal("question-level");
+  }
+
   function startSentenceStudy(level = sentenceLevel) {
     const nextLevel = normalizeAiLevel(level);
     setSentenceLevel(nextLevel);
     startStudy("sentence", studySourceCards, studyLimit, nextLevel);
   }
 
+  function startQuestionStudy(level = sentenceLevel) {
+    const nextLevel = normalizeAiLevel(level);
+    setSentenceLevel(nextLevel);
+    startStudy("question", studySourceCards, studyLimit, nextLevel);
+  }
+
   function startStudy(mode, list = studySourceCards, limit = studyLimit, level = sentenceLevel) {
     if (!list.length) return toast("Thư mục này chưa có thẻ từ.");
+    const isQuizMode = mode === "vi-to-de" || mode === "de-to-vi";
     if (
-      mode !== "flashcard" &&
-      mode !== "sentence" &&
+      isQuizMode &&
       new Set(
         list
           .map((card) => normalizeQuizAnswer(quizAnswer(card, mode)))
@@ -93,11 +104,9 @@ export function useStudy({ library, toast, setModal, setView }) {
     const shuffledCards = shuffle(list).slice(0, cardCount);
     setStudyCards(shuffledCards);
     setStudyMode(mode);
-    if (mode === "sentence") setSentenceLevel(normalizeAiLevel(level));
+    if (mode === "sentence" || mode === "question") setSentenceLevel(normalizeAiLevel(level));
     setQuizOptions(
-      mode === "flashcard"
-        ? []
-        : shuffledCards.map((card) => createQuizOptions(card, list, mode))
+      isQuizMode ? shuffledCards.map((card) => createQuizOptions(card, list, mode)) : []
     );
     setStudyIndex(0);
     setFlipped(false);
@@ -189,8 +198,10 @@ export function useStudy({ library, toast, setModal, setView }) {
     openDailyReview,
     openStudySetup,
     openSentenceLevelSetup,
+    openQuestionLevelSetup,
     startStudy,
     startSentenceStudy,
+    startQuestionStudy,
     recordStudyAnswer,
     nextStudyCard,
     answerStudy,

@@ -9,6 +9,7 @@ export default function StudySetupModal({
   onSelectAll,
   onStart,
   onOpenSentenceLevel,
+  onOpenQuestionLevel,
   onClose,
 }) {
   return (
@@ -60,6 +61,12 @@ export default function StudySetupModal({
           <strong>Đặt câu với AI</strong>
           <span>
             Chọn trình độ tiếng Đức; AI tạo câu, sửa lỗi và giải thích theo đúng trình độ đó.
+          </span>
+        </button>
+        <button className="study-mode-option" onClick={onOpenQuestionLevel}>
+          <strong>Hỏi – đáp với AI</strong>
+          <span>
+            AI tạo câu hỏi từ mỗi thẻ; bạn đọc hoặc chỉ nghe rồi gõ câu trả lời tiếng Đức, AI chấm đúng trình độ.
           </span>
         </button>
       </div>

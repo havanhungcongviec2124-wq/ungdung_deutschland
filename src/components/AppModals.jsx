@@ -68,6 +68,7 @@ export default function AppModals({ modal, setModal, library, study, sharing }) 
           onSelectAll={() => study.setStudyLimit(String(study.studySourceCards.length))}
           onStart={study.startStudy}
           onOpenSentenceLevel={study.openSentenceLevelSetup}
+          onOpenQuestionLevel={study.openQuestionLevelSetup}
           onClose={close}
         />
       )}
@@ -79,6 +80,19 @@ export default function AppModals({ modal, setModal, library, study, sharing }) 
           level={study.sentenceLevel}
           onLevelChange={study.setSentenceLevel}
           onStart={() => study.startSentenceStudy()}
+          onBack={() => setModal("study")}
+          onClose={close}
+        />
+      )}
+
+      {modal === "question-level" && (
+        <SentenceLevelModal
+          variant="question"
+          sourceCount={study.studySourceCards.length}
+          limitValue={study.studyLimitValue}
+          level={study.sentenceLevel}
+          onLevelChange={study.setSentenceLevel}
+          onStart={() => study.startQuestionStudy()}
           onBack={() => setModal("study")}
           onClose={close}
         />

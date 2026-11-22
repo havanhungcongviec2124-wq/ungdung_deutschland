@@ -150,3 +150,77 @@ export async function checkSentence(card, sentence, level) {
     explanation: typeof result.explanation === "string" ? result.explanation.trim() : "",
   };
 }
+
+export async function requestQuestionPrompt(card, level) {
+  const result = await postAi("/api/sentence/question", cardPayload(card, level));
+  if (typeof result?.question !== "string" || !result.question.trim()) {
+    throw new Error("AI không tạo được câu hỏi. Hãy thử lại.");
+  }
+  return {
+    question: result.question.trim(),
+    translation: typeof result.translation === "string" ? result.translation.trim() : "",
+    hint: typeof result.hint === "string" ? result.hint.trim() : "",
+    expectedAnswer:
+      typeof result.expectedAnswer === "string" ? result.expectedAnswer.trim() : "",
+  };
+}
+
+const ANSWER_STOPWORDS = new Set([
+  "das", "die", "der", "den", "dem", "des", "ein", "eine", "einer", "einem", "einen",
+  "mein", "meine", "meiner", "meinem", "meinen", "dein", "deine", "deiner", "deinem",
+  "deinen", "ich", "du", "er", "sie", "es", "wir", "ihr", "wer", "was", "wo", "wohin",
+  "wie", "wann", "warum", "welche", "welcher", "ist", "bin", "bist", "sind", "seid",
+  "hat", "habe", "haben", "gehe", "gehst", "gehen", "zum", "zur", "zu", "in", "im",
+  "mit", "und", "aber", "oder", "für", "von", "vom", "auf", "bei", "nach",
+]);
+const ANSWER_NEGATIONS = new Set([
+  "nicht", "kein", "keine", "keinen", "keinem", "keiner", "nie", "niemals", "ohne",
+]);
+
+function answerWords(value) {
+  return String(value || "")
+    .toLocaleLowerCase("de")
+    .match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+function carriesExpectedMeaning(expected, answer) {
+  const answerTokens = answerWords(answer);
+  if (answerTokens.some((word) => ANSWER_NEGATIONS.has(word))) return false;
+  const expectedTokens = answerWords(expected).filter((word) => !ANSWER_STOPWORDS.has(word));
+  const meaningful = expectedTokens.length ? expectedTokens : answerWords(expected);
+  if (!meaningful.length) return false;
+  const answerSet = new Set(answerTokens);
+  return meaningful.every((word) => answerSet.has(word));
+}
+
+export async function checkAnswer(card, question, answer, level, expectedAnswer = "") {
+  const value = String(answer || "").trim();
+  if (!value) throw new Error("Hãy gõ câu trả lời.");
+  const result = await postAi("/api/sentence/check", {
+    ...cardPayload(card, level),
+    kind: "question",
+    question: String(question || "").trim(),
+    sentence: value,
+    expectedAnswer: String(expectedAnswer || "").trim(),
+  });
+  if (typeof result?.correct !== "boolean") {
+    throw new Error("AI trả về kết quả chấm điểm không hợp lệ.");
+  }
+
+  let corrected = typeof result.corrected === "string" && result.corrected.trim()
+    ? result.corrected.trim()
+    : value;
+  let correct = result.correct;
+  let explanation = typeof result.explanation === "string" ? result.explanation.trim() : "";
+
+  // AI đôi khi vẫn bám mẫu câu, ví dụ bắt "Das ist Bách." mà chấm sai
+  // "Bách ist mein bester Freund.". So theo từ nội dung thì câu này vẫn đúng ý.
+  if (!correct && carriesExpectedMeaning(expectedAnswer, value)) {
+    correct = true;
+    corrected = value;
+    explanation =
+      "Câu trả lời đúng ý câu hỏi và đúng ngữ pháp. Bạn không nhất thiết phải dùng đúng cấu trúc của đáp án mẫu.";
+  }
+
+  return { correct, corrected, explanation };
+}

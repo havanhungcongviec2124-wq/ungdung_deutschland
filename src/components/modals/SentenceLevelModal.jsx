@@ -9,13 +9,16 @@ export default function SentenceLevelModal({
   onStart,
   onBack,
   onClose,
+  variant = "sentence",
 }) {
+  const isQuestion = variant === "question";
   return (
     <Modal title="Chọn trình độ tiếng Đức" onClose={onClose}>
       <div className="study-mode-list">
         <p className="muted">
-          Chọn trình độ hiện tại của bạn. AI sẽ tạo câu mẫu và chấm điểm đúng mức đó, không bắt
-          bạn dùng cấu trúc cao hơn.
+          {isQuestion
+            ? "Chọn trình độ hiện tại của bạn. AI sẽ tạo câu hỏi từ mỗi thẻ và chấm câu trả lời đúng mức đó."
+            : "Chọn trình độ hiện tại của bạn. AI sẽ tạo câu mẫu và chấm điểm đúng mức đó, không bắt bạn dùng cấu trúc cao hơn."}
         </p>
 
         <div className="ai-level-list" role="radiogroup" aria-label="Trình độ tiếng Đức">
@@ -42,8 +45,10 @@ export default function SentenceLevelModal({
         </div>
 
         <p className="muted">
-          Bài này sẽ lấy {limitValue} thẻ ngẫu nhiên trong {sourceCount} thẻ. Bạn có thể gõ câu tự
-          do hoặc xếp từ thành câu.
+          Bài này sẽ lấy {limitValue} thẻ ngẫu nhiên trong {sourceCount} thẻ.{" "}
+          {isQuestion
+            ? "Câu hỏi có thể hiện chữ hoặc chỉ được đọc bằng giọng Đức để bạn nghe và trả lời."
+            : "Bạn có thể gõ câu tự do hoặc xếp từ thành câu."}
         </p>
 
         <div className="ai-level-actions">
@@ -51,7 +56,7 @@ export default function SentenceLevelModal({
             Quay lại
           </button>
           <button type="button" className="btn-primary" onClick={onStart}>
-            Bắt đầu đặt câu
+            {isQuestion ? "Bắt đầu hỏi – đáp" : "Bắt đầu đặt câu"}
           </button>
         </div>
       </div>

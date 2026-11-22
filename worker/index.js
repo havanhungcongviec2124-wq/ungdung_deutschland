@@ -16,7 +16,7 @@ const WORKERS_AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const MAX_AI_BODY_BYTES = 8 * 1024;
 const AI_RATE_LIMIT_PER_MINUTE = 15;
 // Cache kết quả theo nội dung: học lại cùng một từ / thử lại cùng một câu thì gần như tức thì.
-const AI_CACHE_PREFIX = "ai-cache:v1:";
+const AI_CACHE_PREFIX = "ai-cache:v3:";
 const AI_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const AI_SYSTEM_PROMPT =
   "Bạn là giáo viên tiếng Đức giàu kinh nghiệm, dạy học sinh Việt Nam. " +
@@ -75,6 +75,17 @@ const SENTENCE_CHECK_SCHEMA = {
     usesWord: { type: "BOOLEAN" },
   },
   required: ["correct", "corrected", "explanation", "usesWord"],
+};
+
+const SENTENCE_QUESTION_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    question: { type: "STRING" },
+    translation: { type: "STRING" },
+    hint: { type: "STRING" },
+    expectedAnswer: { type: "STRING" },
+  },
+  required: ["question", "translation", "hint", "expectedAnswer"],
 };
 
 function corsHeaders() {
@@ -189,6 +200,36 @@ function normalizeAiLevel(value) {
 
 function levelGuidance(level) {
   return LEVEL_GUIDANCE[normalizeAiLevel(level)] || LEVEL_GUIDANCE[DEFAULT_AI_LEVEL];
+}
+
+// Từ chức năng tiếng Đức không nên dùng để so sánh ý nghĩa câu trả lời.
+const ANSWER_STOPWORDS = new Set([
+  "das", "die", "der", "den", "dem", "des", "ein", "eine", "einer", "einem", "einen",
+  "mein", "meine", "meiner", "meinem", "meinen", "dein", "deine", "deiner", "deinem",
+  "deinen", "ich", "du", "er", "sie", "es", "wir", "ihr", "wer", "was", "wo", "wohin",
+  "wie", "wann", "warum", "welche", "welcher", "ist", "bin", "bist", "sind", "seid",
+  "hat", "habe", "haben", "gehe", "gehst", "gehen", "zum", "zur", "zu", "in", "im",
+  "mit", "und", "aber", "oder", "für", "von", "vom", "auf", "bei", "nach",
+]);
+
+function answerWords(value) {
+  return String(value || "")
+    .toLocaleLowerCase("de")
+    .match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+// Chấp nhận câu đúng ý dù cấu trúc khác mẫu, ví dụ:
+// mong đợi "Das ist Bách." nhưng học sinh trả lời "Bách ist mein bester Freund."
+function answerCarriesExpectedMeaning(expected, answer) {
+  const answerTokens = answerWords(answer);
+  if (answerTokens.some((word) => ["nicht", "kein", "keine", "keinen", "keinem", "keiner", "nie", "niemals", "ohne"].includes(word))) {
+    return false;
+  }
+  const expectedTokens = answerWords(expected).filter((word) => !ANSWER_STOPWORDS.has(word));
+  const meaningful = expectedTokens.length ? expectedTokens : answerWords(expected);
+  if (!meaningful.length) return false;
+  const answerSet = new Set(answerTokens);
+  return meaningful.every((word) => answerSet.has(word));
 }
 
 function aiSystemPrompt(level) {
@@ -474,16 +515,66 @@ async function sentencePrompt(request, env) {
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
 
+async function sentenceQuestion(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+
+  const level = normalizeAiLevel(body?.level);
+  body.level = level;
+  const payload = buildAiPayload(body);
+  if (!payload.word) return json({ error: "Thiếu từ vựng cần kiểm tra." }, 400);
+
+  const cacheKey = await aiCacheKey("question", payload);
+  const cached = await readAiCache(env, cacheKey);
+  if (cached) return json(cached, 200, { "x-ai-cache": "hit" });
+
+  if (!(await allowAiRequest(request, env))) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+
+  const instruction =
+    `Tạo đúng MỘT câu hỏi tiếng Đức ngắn, tự nhiên để người học trả lời bằng tiếng Đức, ` +
+    `dùng từ vựng đã cho hoặc chủ đề liên quan trực tiếp, phù hợp trình độ ${level}. ` +
+    `${levelGuidance(level)} ` +
+    "Câu hỏi phải có một câu trả lời tự nhiên, gọn bằng tiếng Đức. " +
+    "Nếu từ đã cho là từ hỏi (wer/was/wo/wann/warum/wie...), đừng bắt câu trả lời lặp lại chính từ hỏi đó. " +
+    "translation là nghĩa tiếng Việt của câu hỏi. " +
+    "hint là gợi ý ngắn bằng tiếng Việt (tối đa 20 từ) về cách trả lời. " +
+    "expectedAnswer là một câu trả lời mẫu ngắn, đúng ngữ pháp bằng tiếng Đức.";
+  const result = await callAi(env, instruction, body, undefined, SENTENCE_QUESTION_SCHEMA);
+  if (result instanceof Response) return result;
+
+  const question = cleanText(result.question, 400);
+  if (!question) return json({ error: "AI không tạo được câu hỏi. Hãy thử lại." }, 502);
+  const responseBody = {
+    question,
+    translation: cleanText(result.translation, 400),
+    hint: cleanText(result.hint, 200),
+    expectedAnswer: cleanText(result.expectedAnswer, 400),
+  };
+  await writeAiCache(env, cacheKey, responseBody);
+  return json(responseBody, 200, { "x-ai-cache": "miss" });
+}
+
 async function sentenceCheck(request, env) {
   const body = await parseAiRequest(request);
   if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
   const sentence = cleanText(body?.sentence, 600);
   if (!sentence) return json({ error: "Hãy viết câu cần kiểm tra." }, 400);
+  const isQuestion = body?.kind === "question";
+  const question = cleanText(body?.question, 600);
+  if (isQuestion && !question) return json({ error: "Thiếu câu hỏi cần kiểm tra." }, 400);
+  // Chỉ dùng để đối chiếu sau khi AI chấm, KHÔNG đưa vào prompt (tránh AI bám mẫu).
+  const expectedAnswer = cleanText(body?.expectedAnswer, 400);
 
   const level = normalizeAiLevel(body?.level);
   body.level = level;
   const payload = buildAiPayload(body, sentence);
   if (!payload.word) return json({ error: "Thiếu từ vựng cần kiểm tra." }, 400);
+  if (isQuestion) {
+    payload.kind = "question";
+    payload.question = question;
+  }
 
   const cacheKey = await aiCacheKey("check", payload);
   const cached = await readAiCache(env, cacheKey);
@@ -493,24 +584,45 @@ async function sentenceCheck(request, env) {
     return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
   }
 
-  const instruction =
-    `Chấm câu tiếng Đức của học sinh ở trình độ ${level}. ${levelGuidance(level)} ` +
-    "Kiểm tra: dùng đúng từ/nghĩa, chia động từ, mạo từ và cách, trật tự từ, chính tả. " +
-    "Chỉ bắt lỗi những gì nằm trong trình độ đã chọn; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
-    "usesWord là true nếu câu có từ đã cho hoặc dạng biến đổi rõ ràng của nó. " +
-    "correct chỉ là true khi câu đúng ngữ pháp, tự nhiên, đúng trình độ VÀ dùng đúng từ. " +
-    "corrected là câu tiếng Đức đã sửa hay nhất; nếu câu đã đúng thì giữ nguyên. " +
-    "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
+  const instruction = isQuestion
+    ? `Chấm câu trả lời tiếng Đức của học sinh cho câu hỏi đã cho, ở trình độ ${level}. ${levelGuidance(level)} ` +
+      "Kiểm tra: câu trả lời có đúng ý câu hỏi, có tự nhiên, chia động từ/mạo từ/trật tự từ/chính tả đúng không. " +
+      "Nếu câu hỏi dùng từ hỏi (wer/was/wo/wann/warum/wie...), KHÔNG bắt câu trả lời lặp lại chính từ hỏi; chỉ cần nội dung đáp án đúng ý. " +
+      "QUY TẮC BẮT BUỘC: Hãy đánh giá NGỮ NGHĨA và ngữ pháp, KHÔNG so sánh với một mẫu câu cố định. " +
+      "Mọi cách nói tự nhiên truyền cùng một thông tin đều phải được tính LÀ ĐÚNG. " +
+      "Ví dụ với 'Wer bist du?' thì 'Ich bin Anna.' đúng; với 'Wer ist das?' thì 'Das ist Anna.' đúng; " +
+      "với 'Wer ist dein bester Freund?' thì 'Bách ist mein bester Freund.' cũng PHẢI là correct=true, dù mẫu có thể là 'Das ist Bách.'. " +
+      "TUYỆT ĐỐI KHÔNG chấm sai chỉ vì câu của học sinh khác cấu trúc hoặc dài hơn đáp án mẫu. " +
+      "Chỉ bắt lỗi trong trình độ đã chọn; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
+      "usesWord là true nếu câu trả lời dùng từ của thẻ hoặc dạng biến đổi rõ ràng; với từ hỏi thì true khi nội dung đáp án liên quan đúng tới từ hỏi. " +
+      "correct chỉ là true khi câu trả lời đúng ý câu hỏi, tự nhiên, đúng ngữ pháp và đúng trình độ. " +
+      "corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. " +
+      "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn."
+    : `Chấm câu tiếng Đức của học sinh ở trình độ ${level}. ${levelGuidance(level)} ` +
+      "Kiểm tra: dùng đúng từ/nghĩa, chia động từ, mạo từ và cách, trật tự từ, chính tả. " +
+      "Chỉ bắt lỗi những gì nằm trong trình độ đã chọn; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
+      "usesWord là true nếu câu có từ đã cho hoặc dạng biến đổi rõ ràng của nó. " +
+      "correct chỉ là true khi câu đúng ngữ pháp, tự nhiên, đúng trình độ VÀ dùng đúng từ. " +
+      "corrected là câu tiếng Đức đã sửa hay nhất; nếu câu đã đúng thì giữ nguyên. " +
+      "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
   const result = await callAi(env, instruction, body, sentence, SENTENCE_CHECK_SCHEMA);
   if (result instanceof Response) return result;
 
   const usesWord = result.usesWord !== false;
-  const responseBody = {
-    correct: result.correct === true && usesWord,
-    usesWord,
-    corrected: cleanText(result.corrected, 400) || sentence,
-    explanation: cleanText(result.explanation, 600) || "AI chưa đưa ra nhận xét.",
-  };
+  let correct = result.correct === true && (isQuestion || usesWord);
+  let corrected = cleanText(result.corrected, 400) || sentence;
+  let explanation = cleanText(result.explanation, 600) || "AI chưa đưa ra nhận xét.";
+
+  // Lớp an toàn: AI đôi khi vẫn ưu tiên mẫu câu. Nếu thông tin chính của đáp án
+  // có mặt trong câu của học sinh (không phủ định), coi như trả lời đúng ý.
+  if (isQuestion && !correct && answerCarriesExpectedMeaning(expectedAnswer, sentence)) {
+    correct = true;
+    corrected = sentence;
+    explanation =
+      "Câu trả lời đúng ý câu hỏi và đúng ngữ pháp. Bạn không nhất thiết phải dùng đúng cấu trúc của đáp án mẫu.";
+  }
+
+  const responseBody = { correct, usesWord, corrected, explanation };
   await writeAiCache(env, cacheKey, responseBody);
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
@@ -536,16 +648,19 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/sentence/prompt" || url.pathname === "/api/sentence/check") {
+    const aiRoutes = {
+      "/api/sentence/prompt": sentencePrompt,
+      "/api/sentence/question": sentenceQuestion,
+      "/api/sentence/check": sentenceCheck,
+    };
+    if (aiRoutes[url.pathname]) {
       if (request.method === "OPTIONS") return corsPreflight();
       if (request.method !== "POST") {
         return json({ error: "Phương thức không được hỗ trợ." }, 405, {
           allow: "POST, OPTIONS",
         });
       }
-      return url.pathname.endsWith("/prompt")
-        ? sentencePrompt(request, env)
-        : sentenceCheck(request, env);
+      return aiRoutes[url.pathname](request, env);
     }
 
     if (url.pathname.startsWith("/api/")) {

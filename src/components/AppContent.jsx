@@ -2,6 +2,7 @@ import { CardsPage, FolderOverviewPage } from "./CardsPage";
 import HomePage from "./HomePage";
 import ImportPage from "./ImportPage";
 import ImportPreviewPage from "./ImportPreviewPage";
+import QuestionPage from "./QuestionPage";
 import ResultPage from "./ResultPage";
 import SentencePage from "./SentencePage";
 import SharedLinkPage from "./SharedLinkPage";
@@ -114,6 +115,17 @@ export default function AppContent({ view, library, study, importFlow, sharing, 
         <>
           {study.studyMode === "sentence" ? (
             <SentencePage
+              card={currentCard}
+              index={study.studyIndex}
+              total={study.studyCards.length}
+              level={study.sentenceLevel}
+              onResult={study.recordStudyAnswer}
+              onNext={study.nextStudyCard}
+              onSpeak={library.speakGerman}
+              onExit={actions.closeStudy}
+            />
+          ) : study.studyMode === "question" ? (
+            <QuestionPage
               card={currentCard}
               index={study.studyIndex}
               total={study.studyCards.length}

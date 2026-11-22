@@ -1488,6 +1488,50 @@ button { cursor: pointer; }
 .inline-voice { width: 26px; height: 26px; vertical-align: middle; }
 .sentence-note { margin: 0; color: #a2a6b5; font-size: 10px; line-height: 1.5; }
 
+/* AI question & answer practice */
+.question-read { width: min(100%, 560px); }
+.question-read strong { font-size: 17px; line-height: 1.6; color: #292d43; }
+.question-read .inline-voice {
+  width: auto;
+  height: 26px;
+  padding: 0 9px;
+  gap: 5px;
+  justify-self: center;
+  font-size: 10px;
+}
+.question-listen {
+  width: min(100%, 560px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  border: 1px dashed #dcd8ff;
+  border-radius: 14px;
+  background: #faf9ff;
+  text-align: center;
+}
+.question-listen-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #6d5dfc;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.question-listen-play:hover { background: #5b4ee0; }
+.question-listen-caption {
+  color: #9297a9;
+  font-size: 11px;
+  line-height: 1.6;
+  max-width: 420px;
+}
+.sentence-check-error { width: min(100%, 560px); }
+
 .quiz-prompt {
   width: min(100%, 560px);
   min-height: 145px;
