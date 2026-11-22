@@ -3,6 +3,9 @@
   "name": "ungdung-deutschland",
   "main": "worker/index.js",
   "compatibility_date": "2026-11-04",
+  "ai": {
+    "binding": "AI"
+  },
   "observability": {
     "enabled": true
   },

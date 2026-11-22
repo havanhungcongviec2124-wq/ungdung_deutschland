@@ -78,7 +78,7 @@ Chuẩn bị key (miễn phí):
    GEMINI_API_KEY=key_cua_ban
    GEMINI_MODEL=gemini-3.8-flash
    ```
-   Có thể copy từ `.dev.vars.example`. Dòng `GEMINI_MODEL` là tùy chọn; nếu bỏ trống Worker dùng `gemini-3.8-flash`. Khi Google đổi tên model, Worker tự thử thêm `gemini-flash-latest` và `gemini-3.5-flash`, với thời gian chờ tối đa 12 giây cho mỗi model.
+   Có thể copy từ `.dev.vars.example`. Dòng `GEMINI_MODEL` là tùy chọn; nếu bỏ trống Worker dùng `gemini-3.8-flash`. Khi Google đổi tên model, Worker tự thử thêm `gemini-flash-latest` và `gemini-3.5-flash`, với thời gian chờ tối đa 12 giây cho mỗi model. Nếu Gemini không dùng được (ví dụ Google chặn region của Cloudflare), Worker tự chuyển sang Cloudflare Workers AI (model mặc định `@cf/mistralai/mistral-small-3.1-24b-instruct`, đổi được bằng secret `WORKERS_AI_MODEL`).
 3. Khởi động lại `npm run dev`. Nếu quên khởi động lại, Worker sẽ báo “AI chưa được cấu hình”.
 
 Khi deploy lên Cloudflare (để bản web và ứng dụng Mac dùng được):
@@ -92,6 +92,6 @@ Lưu ý:
 - API key được giữ ở phía Worker, không nhúng vào giao diện hay localStorage. Không đặt key vào biến `VITE_*` vì trình duyệt có thể đọc được.
 - Chế độ này **cần Internet**. Các chế độ lật thẻ, trắc nghiệm và OCR vẫn dùng được ngoại tuyến. Nếu AI chấm lỗi nhưng câu mẫu đã được tạo, chế độ xếp từ vẫn tự so khớp câu để tiếp tục bài.
 - Free tier có giới hạn số yêu cầu/phút và số yêu cầu/ngày; Worker giới hạn 15 yêu cầu/phút mỗi địa chỉ IP. Khi quá tải, ứng dụng sẽ báo bạn đợi một chút.
-- Nội dung câu và từ vựng được gửi tới Google để chấm. Đừng dùng chế độ này với dữ liệu riêng tư.
+- Nội dung câu và từ vựng được gửi tới Google (hoặc Cloudflare Workers AI nếu Gemini bị chặn) để chấm. Đừng dùng chế độ này với dữ liệu riêng tư.
 - Nếu bạn từng dán key vào nơi công khai (ví dụ trò chuyện, screenshot), hãy xóa key đó trong Google AI Studio và tạo key mới.
 

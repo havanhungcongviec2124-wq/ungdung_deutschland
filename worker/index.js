@@ -12,6 +12,7 @@ const SHARE_KEY_PREFIX = "share:";
 const GEMINI_MODEL = "gemini-3.8-flash";
 const GEMINI_MODEL_FALLBACKS = ["gemini-flash-latest", "gemini-3.5-flash"];
 const GEMINI_REQUEST_TIMEOUT_MS = 12000;
+const WORKERS_AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const MAX_AI_BODY_BYTES = 8 * 1024;
 const AI_RATE_LIMIT_PER_MINUTE = 15;
 const AI_SYSTEM_PROMPT =
@@ -171,6 +172,74 @@ function geminiErrorMessage(status) {
   return "Không thể kết nối tới dịch vụ AI.";
 }
 
+// Schema của Gemini dùng chữ hoa; Workers AI cần JSON Schema chuẩn (chữ thường).
+function toJsonSchema(schema) {
+  if (Array.isArray(schema)) return schema.map(toJsonSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const result = {};
+  for (const [key, value] of Object.entries(schema)) {
+    result[key] = key === "type" && typeof value === "string"
+      ? value.toLowerCase()
+      : toJsonSchema(value);
+  }
+  return result;
+}
+
+function buildAiPayload(card, sentence) {
+  const payload = {
+    word: cleanText(card?.word, 200),
+    plural: cleanText(card?.plural, 200),
+    meaning: cleanText(card?.meaning, 300),
+    note: cleanText(card?.note, 500),
+  };
+  if (sentence !== undefined) payload.sentence = cleanText(sentence, 600);
+  return payload;
+}
+
+async function callWorkersAi(env, userInstruction, card, sentence, schema) {
+  const model = cleanText(env.WORKERS_AI_MODEL, 80) || WORKERS_AI_MODEL;
+  const payload = buildAiPayload(card, sentence);
+  if (!payload.word) return json({ error: "Thiếu từ vựng cần kiểm tra." }, 400);
+
+  const output = await env.AI.run(model, {
+    messages: [
+      { role: "system", content: AI_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `${userInstruction}\n\nDữ liệu: ${JSON.stringify(payload)}`,
+      },
+    ],
+    guided_json: toJsonSchema(schema),
+    temperature: 0.2,
+    max_tokens: 512,
+  });
+
+  const text =
+    typeof output === "string"
+      ? output
+      : typeof output?.response === "string"
+        ? output.response
+        : JSON.stringify(output?.response ?? output);
+  return extractJson(text);
+}
+
+// Gemini bị chặn ở một số region (VD Cloudflare egress ở HKG) -> dùng Workers AI.
+async function callAi(env, userInstruction, card, sentence, schema) {
+  const gemini = await callGemini(env, userInstruction, card, sentence, schema);
+  if (!(gemini instanceof Response)) return gemini;
+  if (!env.AI) return gemini;
+
+  try {
+    return await callWorkersAi(env, userInstruction, card, sentence, schema);
+  } catch (error) {
+    console.error("Workers AI không trả về kết quả:", error);
+    return json(
+      { error: "AI tạm thời không khả dụng. Vui lòng thử lại sau." },
+      502
+    );
+  }
+}
+
 async function parseAiRequest(request) {
   const contentType = request.headers.get("content-type") || "";
   if (!contentType.toLowerCase().includes("application/json")) return null;
@@ -216,13 +285,7 @@ async function callGemini(env, userInstruction, card, sentence, schema) {
   const models = [
     ...new Set([configuredModel || GEMINI_MODEL, GEMINI_MODEL, ...GEMINI_MODEL_FALLBACKS]),
   ];
-  const payload = {
-    word: cleanText(card?.word, 200),
-    plural: cleanText(card?.plural, 200),
-    meaning: cleanText(card?.meaning, 300),
-    note: cleanText(card?.note, 500),
-  };
-  if (sentence !== undefined) payload.sentence = cleanText(sentence, 600);
+  const payload = buildAiPayload(card, sentence);
   if (!payload.word) return json({ error: "Thiếu từ vựng cần kiểm tra." }, 400);
 
   const requestBody = JSON.stringify({
@@ -242,8 +305,10 @@ async function callGemini(env, userInstruction, card, sentence, schema) {
 
   let lastStatus = 0;
   let attempts = 0;
+  // Khi có Workers AI làm dự phòng, chỉ thử Gemini một lần để phản hồi nhanh.
+  const maxAttempts = env.AI ? 1 : 3;
   for (const model of models) {
-    if (attempts >= 3) break;
+    if (attempts >= maxAttempts) break;
     attempts += 1;
     let response;
     try {
@@ -282,8 +347,7 @@ async function callGemini(env, userInstruction, card, sentence, schema) {
     const detail = await response.text();
     console.warn(`Gemini model ${model} lỗi ${response.status}:`, detail.slice(0, 300));
     lastStatus = response.status;
-    // Model cũ bị gỡ hoặc đang quá tải -> thử tối đa vài model Flash khác.
-    if (response.status === 503 && attempts >= 2) break;
+    // Model cũ bị gỡ hoặc đang quá tải -> thử các model Flash khác nếu còn lượt.
     if (response.status !== 404 && response.status !== 503) break;
   }
 
@@ -302,7 +366,7 @@ async function sentencePrompt(request, env) {
     "Câu dài 5-12 từ, trình độ A1-B1, dùng đúng từ hoặc dạng chia/mạo từ phù hợp. " +
     "translation là nghĩa tiếng Việt của cả câu. " +
     "hint là một gợi ý ngắn bằng tiếng Việt (tối đa 20 từ) về cách dùng từ này.";
-  const result = await callGemini(env, instruction, body, undefined, SENTENCE_PROMPT_SCHEMA);
+  const result = await callAi(env, instruction, body, undefined, SENTENCE_PROMPT_SCHEMA);
   if (result instanceof Response) return result;
 
   const sentence = cleanText(result.sentence, 400);
@@ -332,7 +396,7 @@ async function sentenceCheck(request, env) {
     "correct chỉ là true khi câu đúng ngữ pháp, tự nhiên VÀ dùng đúng từ. " +
     "corrected là câu tiếng Đức đã sửa hay nhất; nếu câu đã đúng thì giữ nguyên. " +
     "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
-  const result = await callGemini(env, instruction, body, sentence, SENTENCE_CHECK_SCHEMA);
+  const result = await callAi(env, instruction, body, sentence, SENTENCE_CHECK_SCHEMA);
   if (result instanceof Response) return result;
 
   const usesWord = result.usesWord !== false;
