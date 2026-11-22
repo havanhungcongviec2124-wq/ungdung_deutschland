@@ -2,9 +2,76 @@ import { getApiOrigin } from "./folderSharing";
 import { shuffle } from "./appData";
 
 const AI_TIMEOUT_MS = 60000;
+const AI_LEVEL_STORAGE_KEY = "wortkarte.ai.sentenceLevel";
+export const DEFAULT_AI_LEVEL = "A1.1";
 
-function cardPayload(card) {
+export const AI_LEVELS = [
+  {
+    id: "A1.1",
+    label: "Mới bắt đầu",
+    description: "Câu rất ngắn (3–6 từ), thì hiện tại, từ vựng quen thuộc nhất.",
+  },
+  {
+    id: "A1.2",
+    label: "Hoàn thành A1",
+    description: "Câu ngắn (5–8 từ), mạo từ, số nhiều và câu hỏi đơn giản.",
+  },
+  {
+    id: "A2.1",
+    label: "Bắt đầu A2",
+    description: "Câu 6–10 từ, thêm quá khứ Perfekt, động từ modal và und/aber.",
+  },
+  {
+    id: "A2.2",
+    label: "Hoàn thành A2",
+    description: "Câu 8–12 từ, dùng weil/dass và trật tự từ tự nhiên hơn.",
+  },
+  {
+    id: "B1.1",
+    label: "Bắt đầu B1",
+    description: "Câu 10–15 từ, có mệnh đề phụ và Konjunktiv II cơ bản.",
+  },
+  {
+    id: "B1.2",
+    label: "Hoàn thành B1",
+    description: "Câu tự nhiên với wenn/obwohl và các cấu trúc B1 quen thuộc.",
+  },
+  {
+    id: "B2.1",
+    label: "Bắt đầu B2",
+    description: "Câu phức tạp hơn, dùng Passiv, Konjunktiv II và liên từ B2.",
+  },
+  {
+    id: "B2.2",
+    label: "Hoàn thành B2",
+    description: "Câu dài tự nhiên, diễn đạt ý kiến và dùng từ nối nâng cao.",
+  },
+];
+
+export function normalizeAiLevel(level) {
+  const value = String(level || "").trim().toUpperCase();
+  return AI_LEVELS.some((item) => item.id === value) ? value : DEFAULT_AI_LEVEL;
+}
+
+export function readSavedAiLevel() {
+  try {
+    return normalizeAiLevel(window.localStorage.getItem(AI_LEVEL_STORAGE_KEY));
+  } catch {
+    return DEFAULT_AI_LEVEL;
+  }
+}
+
+export function saveAiLevel(level) {
+  try {
+    window.localStorage.setItem(AI_LEVEL_STORAGE_KEY, normalizeAiLevel(level));
+  } catch {
+    // Trình duyệt có thể chặn localStorage; bỏ qua, không ảnh hưởng bài học.
+  }
+}
+
+function cardPayload(card, level) {
   return {
+    level: normalizeAiLevel(level),
     word: card?.front || "",
     plural: card?.plural || "",
     meaning: card?.back || "",
@@ -45,8 +112,8 @@ async function postAi(path, payload) {
   return body;
 }
 
-export async function requestSentencePrompt(card) {
-  const result = await postAi("/api/sentence/prompt", cardPayload(card));
+export async function requestSentencePrompt(card, level) {
+  const result = await postAi("/api/sentence/prompt", cardPayload(card, level));
   if (typeof result?.sentence !== "string" || !result.sentence.trim()) {
     throw new Error("AI không tạo được câu mẫu. Hãy thử lại.");
   }
@@ -62,10 +129,13 @@ export async function requestSentencePrompt(card) {
   };
 }
 
-export async function checkSentence(card, sentence) {
+export async function checkSentence(card, sentence, level) {
   const value = String(sentence || "").trim();
   if (!value) throw new Error("Hãy viết câu cần kiểm tra.");
-  const result = await postAi("/api/sentence/check", { ...cardPayload(card), sentence: value });
+  const result = await postAi("/api/sentence/check", {
+    ...cardPayload(card, level),
+    sentence: value,
+  });
   if (typeof result?.correct !== "boolean") {
     throw new Error("AI trả về kết quả chấm điểm không hợp lệ.");
   }

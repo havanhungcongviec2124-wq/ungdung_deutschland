@@ -57,7 +57,7 @@ stattfinden | | diễn ra
 - Ảnh dùng OCR tiếng Đức/Anh/Việt bằng Tesseract.js. OCR có thể nhận sai cột, vì vậy luôn sửa bảng xem trước trước khi lưu.
 
 ## 7. Học tập và lưu trữ dữ liệu
-- Nút **Kiểm tra** cho phép chọn lật thẻ, trắc nghiệm Đức → Việt, trắc nghiệm Việt → Đức hoặc **Đặt câu với AI**. Trắc nghiệm cần ít nhất 2 đáp án khác nhau trong bộ thẻ; có thể nhập số thẻ muốn làm, thẻ được chọn ngẫu nhiên và không trùng nhau. Chế độ đặt câu gõ câu hoặc xếp từ, AI chấm ngữ pháp và sửa lỗi (xem mục 8).
+- Nút **Kiểm tra** cho phép chọn lật thẻ, trắc nghiệm Đức → Việt, trắc nghiệm Việt → Đức hoặc **Đặt câu với AI**. Trắc nghiệm cần ít nhất 2 đáp án khác nhau trong bộ thẻ; có thể nhập số thẻ muốn làm, thẻ được chọn ngẫu nhiên và không trùng nhau. Khi chọn **Đặt câu với AI**, ứng dụng hỏi trình độ tiếng Đức hiện tại (A1.1, A1.2, A2.1, A2.2, B1.1, B1.2, B2.1, B2.2) trước khi bắt đầu; lựa chọn lần trước được nhớ trên thiết bị. Sau đó bạn gõ câu tự do hoặc xếp từ, AI tạo câu mẫu, chấm đúng trình độ và giải thích bằng tiếng Việt (xem mục 8).
 - Nút **Lưu tất cả** lưu thẻ vào `localStorage` của trình duyệt trên máy này; thẻ và thư mục vẫn còn sau khi tải lại hoặc đóng/mở trang.
 - Khi nhập, ứng dụng báo các từ đã có trong thư mục đang chọn và chỉ lưu từ mới.
 - Trong từng thư mục, mục **Tổng các từ vựng** hiển thị thẻ dạng bảng, cho sửa từ/số nhiều/nghĩa, tô đỏ các từ trùng và cho phép xóa bản dư để giữ lại một thẻ cho mỗi từ.
@@ -69,7 +69,7 @@ stattfinden | | diễn ra
 - Có thể chọn nhiều ảnh cùng lúc; ứng dụng nhận diện lần lượt rồi gộp các dòng vào một bảng xem trước.
 
 ## 8. Chấm câu đặt câu bằng AI miễn phí (Google Gemini)
-Chế độ **Đặt câu với AI** gửi từ vựng và câu của bạn tới Gemini (free tier) qua Worker của ứng dụng. AI trả về đúng/sai, câu đã sửa và giải thích ngắn bằng tiếng Việt. Có hai cách làm bài: gõ câu tự do hoặc xếp các từ đã xáo trộn theo thứ tự đúng.
+Chế độ **Đặt câu với AI** gửi từ vựng, trình độ bạn đã chọn và câu của bạn tới Gemini (free tier) qua Worker của ứng dụng. Trình độ (A1.1 đến B2.2) được dùng cho cả câu mẫu lẫn phần chấm điểm: AI chỉ bắt lỗi các cấu trúc phù hợp, không trừ điểm vì bạn chưa dùng cấu trúc cao hơn. AI trả về đúng/sai, câu đã sửa và giải thích ngắn bằng tiếng Việt. Có hai cách làm bài: gõ câu tự do hoặc xếp các từ đã xáo trộn theo thứ tự đúng. Trình độ chọn lần trước được lưu trên thiết bị để lần sau không phải chọn lại, nhưng bạn luôn có thể đổi trong bước trước khi bắt đầu.
 
 Chuẩn bị key (miễn phí):
 1. Truy cập https://aistudio.google.com/app/apikey → đăng nhập Google → **Create API key**.

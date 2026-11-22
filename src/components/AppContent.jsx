@@ -117,6 +117,7 @@ export default function AppContent({ view, library, study, importFlow, sharing, 
               card={currentCard}
               index={study.studyIndex}
               total={study.studyCards.length}
+              level={study.sentenceLevel}
               onResult={study.recordStudyAnswer}
               onNext={study.nextStudyCard}
               onSpeak={library.speakGerman}

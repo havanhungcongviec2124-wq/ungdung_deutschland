@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createQuizOptions,
   normalizeQuizAnswer,
@@ -6,6 +6,7 @@ import {
   shuffle,
   todayKey,
 } from "../lib/appData";
+import { normalizeAiLevel, readSavedAiLevel, saveAiLevel } from "../lib/aiSentence";
 
 export function useStudy({ library, toast, setModal, setView }) {
   const [flipped, setFlipped] = useState(false);
@@ -14,6 +15,7 @@ export function useStudy({ library, toast, setModal, setView }) {
   const [studySourceCards, setStudySourceCards] = useState([]);
   const [studyLimit, setStudyLimit] = useState("");
   const [studyMode, setStudyMode] = useState("flashcard");
+  const [sentenceLevel, setSentenceLevel] = useState(readSavedAiLevel);
   const [quizOptions, setQuizOptions] = useState([]);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [knownIds, setKnownIds] = useState([]);
@@ -30,6 +32,10 @@ export function useStudy({ library, toast, setModal, setView }) {
   const studyLimitInvalid =
     Number.isFinite(parsedStudyLimit) &&
     (parsedStudyLimit < 1 || parsedStudyLimit > studySourceCards.length);
+
+  useEffect(() => {
+    saveAiLevel(sentenceLevel);
+  }, [sentenceLevel]);
 
   function openDailyReview() {
     const { folderCards, dailyStats, reviewHistory, activeFolder } = library;
@@ -54,7 +60,18 @@ export function useStudy({ library, toast, setModal, setView }) {
     setModal("study");
   }
 
-  function startStudy(mode, list = studySourceCards, limit = studyLimit) {
+  function openSentenceLevelSetup() {
+    if (!studySourceCards.length) return openStudySetup();
+    setModal("sentence-level");
+  }
+
+  function startSentenceStudy(level = sentenceLevel) {
+    const nextLevel = normalizeAiLevel(level);
+    setSentenceLevel(nextLevel);
+    startStudy("sentence", studySourceCards, studyLimit, nextLevel);
+  }
+
+  function startStudy(mode, list = studySourceCards, limit = studyLimit, level = sentenceLevel) {
     if (!list.length) return toast("Thư mục này chưa có thẻ từ.");
     if (
       mode !== "flashcard" &&
@@ -76,6 +93,7 @@ export function useStudy({ library, toast, setModal, setView }) {
     const shuffledCards = shuffle(list).slice(0, cardCount);
     setStudyCards(shuffledCards);
     setStudyMode(mode);
+    if (mode === "sentence") setSentenceLevel(normalizeAiLevel(level));
     setQuizOptions(
       mode === "flashcard"
         ? []
@@ -139,7 +157,7 @@ export function useStudy({ library, toast, setModal, setView }) {
   function retryStudy() {
     const retryCards = studyCards.filter((card) => unknownIds.includes(card.id));
     // Khi ôn lại từ chưa thuộc, luôn dùng tất cả thẻ đó bất kể số lượng đã nhập.
-    startStudy(studyMode, retryCards, retryCards.length);
+    startStudy(studyMode, retryCards, retryCards.length, sentenceLevel);
   }
 
   return {
@@ -153,13 +171,17 @@ export function useStudy({ library, toast, setModal, setView }) {
     studyLimitValue,
     studyLimitInvalid,
     studyMode,
+    sentenceLevel,
+    setSentenceLevel,
     quizOptions,
     selectedAnswer,
     knownIds,
     unknownIds,
     openDailyReview,
     openStudySetup,
+    openSentenceLevelSetup,
     startStudy,
+    startSentenceStudy,
     recordStudyAnswer,
     nextStudyCard,
     answerStudy,

@@ -1304,6 +1304,50 @@ button { cursor: pointer; }
 .study-limit-field small { font-size: 10px; color: #9297a9; line-height: 1.5; }
 .study-limit-field small.study-limit-error { color: #e16b78; }
 
+/* Chọn trình độ cho chế độ đặt câu với AI */
+.ai-level-list { display: grid; gap: 8px; max-height: 46vh; overflow: auto; padding-right: 2px; }
+.ai-level-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #eceef4;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+.ai-level-option:hover { border-color: #b9b2ff; background: #faf9ff; }
+.ai-level-option.active {
+  border-color: #6d5dfc;
+  background: #faf9ff;
+  box-shadow: 0 0 0 3px #6d5dfc12;
+}
+.ai-level-option input { margin: 3px 0 0; accent-color: #6d5dfc; }
+.ai-level-copy { display: grid; gap: 4px; }
+.ai-level-copy strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #45495e;
+  font-size: 12px;
+}
+.ai-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #eeebff;
+  color: #5b4ee0;
+  font-size: 10px;
+  font-weight: 800;
+}
+.ai-level-copy small { color: #9297a9; font-size: 10px; line-height: 1.5; }
+.ai-level-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ai-level-actions button { min-width: 130px; }
+
 /* Sentence practice with AI */
 .sentence-screen .spin { animation: spin 1s linear infinite; }
 .sentence-content { display: grid; justify-items: center; gap: 14px; }

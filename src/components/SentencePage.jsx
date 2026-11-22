@@ -9,7 +9,11 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { checkSentence, requestSentencePrompt } from "../lib/aiSentence";
+import {
+  checkSentence,
+  normalizeAiLevel,
+  requestSentencePrompt,
+} from "../lib/aiSentence";
 
 function normalizeSentence(value) {
   return String(value || "")
@@ -23,11 +27,13 @@ export default function SentencePage({
   card,
   index,
   total,
+  level,
   onResult,
   onNext,
   onExit,
   onSpeak,
 }) {
+  const activeLevel = normalizeAiLevel(level);
   const [tab, setTab] = useState("type");
   const [sentence, setSentence] = useState("");
   const [prompt, setPrompt] = useState(null);
@@ -53,7 +59,7 @@ export default function SentencePage({
     setFeedback(null);
     setChecking(false);
     setCheckError("");
-  }, [card.id]);
+  }, [card.id, activeLevel]);
 
   useEffect(() => {
     if (tab !== "arrange" || prompt || promptRequestedRef.current) return undefined;
@@ -62,7 +68,7 @@ export default function SentencePage({
     setPromptLoading(true);
     setPromptError("");
 
-    requestSentencePrompt(card)
+    requestSentencePrompt(card, activeLevel)
       .then((data) => {
         if (!cancelled) setPrompt(data);
       })
@@ -76,7 +82,7 @@ export default function SentencePage({
     return () => {
       cancelled = true;
     };
-  }, [tab, card.id, prompt, promptRetry]);
+  }, [tab, card.id, activeLevel, prompt, promptRetry]);
 
   const assembled = prompt
     ? selected
@@ -100,7 +106,7 @@ export default function SentencePage({
     setCheckError("");
 
     try {
-      const result = await checkSentence(card, value);
+      const result = await checkSentence(card, value, activeLevel);
       setFeedback({ ...result, source: "ai", userSentence: value });
       finish(result.correct);
     } catch (error) {
@@ -132,7 +138,7 @@ export default function SentencePage({
         <button className="btn-secondary" onClick={onExit}>
           <X size={17} /> Kết thúc
         </button>
-        <span>ĐẶT CÂU · AI CHẤM ĐIỂM</span>
+        <span>ĐẶT CÂU · {activeLevel} · AI CHẤM ĐIỂM</span>
         <strong>
           {index + 1} / {total}
         </strong>

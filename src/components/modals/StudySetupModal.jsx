@@ -8,6 +8,7 @@ export default function StudySetupModal({
   onLimitChange,
   onSelectAll,
   onStart,
+  onOpenSentenceLevel,
   onClose,
 }) {
   return (
@@ -55,9 +56,11 @@ export default function StudySetupModal({
           <strong>Trắc nghiệm: Việt → Đức</strong>
           <span>Hiện nghĩa tiếng Việt, chọn đáp án từ tiếng Đức.</span>
         </button>
-        <button className="study-mode-option" onClick={() => onStart("sentence")}>
+        <button className="study-mode-option" onClick={onOpenSentenceLevel}>
           <strong>Đặt câu với AI</strong>
-          <span>Gõ câu hoặc xếp từ; AI kiểm tra ngữ pháp, sửa lỗi và giải thích chi tiết.</span>
+          <span>
+            Chọn trình độ tiếng Đức; AI tạo câu, sửa lỗi và giải thích theo đúng trình độ đó.
+          </span>
         </button>
       </div>
     </Modal>

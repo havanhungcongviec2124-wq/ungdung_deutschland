@@ -4,6 +4,7 @@ import FolderModal from "./modals/FolderModal";
 import InstallModal from "./modals/InstallModal";
 import RenameFolderModal from "./modals/RenameFolderModal";
 import ShareFolderModal from "./modals/ShareFolderModal";
+import SentenceLevelModal from "./modals/SentenceLevelModal";
 import SharedFolderModal from "./modals/SharedFolderModal";
 import StudySetupModal from "./modals/StudySetupModal";
 
@@ -66,6 +67,19 @@ export default function AppModals({ modal, setModal, library, study, sharing }) 
           onLimitChange={study.setStudyLimit}
           onSelectAll={() => study.setStudyLimit(String(study.studySourceCards.length))}
           onStart={study.startStudy}
+          onOpenSentenceLevel={study.openSentenceLevelSetup}
+          onClose={close}
+        />
+      )}
+
+      {modal === "sentence-level" && (
+        <SentenceLevelModal
+          sourceCount={study.studySourceCards.length}
+          limitValue={study.studyLimitValue}
+          level={study.sentenceLevel}
+          onLevelChange={study.setSentenceLevel}
+          onStart={() => study.startSentenceStudy()}
+          onBack={() => setModal("study")}
           onClose={close}
         />
       )}
