@@ -24,14 +24,20 @@ npm run preview
 ```
 
 ## 4. Đưa ứng dụng lên mạng để chia sẻ và cài đặt
-1. Tạo bản production bằng `npm run build`.
-2. Deploy toàn bộ nội dung trong thư mục `dist/` lên hosting static có HTTPS, ví dụ Netlify, Vercel hoặc Cloudflare Pages.
+1. Tạo bản production bằng `npm run build`. Giao diện nằm trong `dist/client/`, Worker API nằm trong `worker/`.
+2. Với Cloudflare Workers, chạy `npm run deploy`. Nếu dùng hosting static khác, tải toàn bộ nội dung trong `dist/client/` lên hosting có HTTPS, ví dụ Netlify, Vercel hoặc Cloudflare Pages; khi đó link chia sẻ ngắn cần thêm Worker API riêng.
 3. Mở đường dẫn HTTPS trên thiết bị rồi cài:
    - **iPhone/iPad:** mở bằng Safari → **Chia sẻ** → **Thêm vào Màn hình chính**.
    - **Android:** mở bằng Chrome → menu → **Cài đặt ứng dụng** / **Thêm vào màn hình chính**.
    - **Mac:** Safari → **File** → **Add to Dock**; Chrome/Edge → menu trình duyệt → cài trang web thành ứng dụng.
    - **Windows:** mở bằng Edge hoặc Chrome → biểu tượng cài đặt trên thanh địa chỉ hoặc menu → **Cài đặt WortKarte**.
 4. Chia sẻ đường dẫn HTTPS đó để người khác mở và cài ứng dụng.
+
+Link chia sẻ thư mục dạng ngắn cần một KV namespace trên Cloudflare. Repo đã cấu hình sẵn binding `SHARE_KV` trong `wrangler.jsonc`; nếu dùng tài khoản Cloudflare khác, tạo namespace mới rồi cập nhật lại `id`:
+```bash
+npx wrangler kv namespace create SHARE_KV
+npm run deploy
+```
 
 Ứng dụng là PWA nên không cần đăng qua App Store hoặc Play Store. Hãy mở ứng dụng bằng Internet ít nhất một lần để cài service worker và tải cache (bao gồm giao diện, mã chạy và dữ liệu OCR). Sau đó có thể mở từ màn hình chính, tạo/sửa/ôn thẻ và nhận diện ảnh mà không cần Wi-Fi hay mạng di động. Thẻ và tiến độ vẫn lưu riêng trong trình duyệt của từng thiết bị, không tự chuyển sang máy người khác. Cập nhật ứng dụng cần kết nối Internet.
 
@@ -58,6 +64,6 @@ stattfinden | | diễn ra
 - Mỗi thư mục có thống kê ôn tập theo ngày, mục tiêu mặc định 10 thẻ/ngày (có thể chỉnh), số câu đúng/cần ôn lại và chuỗi ngày hoàn thành mục tiêu.
 - Nút loa phát âm từ tiếng Đức bằng giọng đọc có sẵn của trình duyệt/thiết bị, miễn phí và không gửi dữ liệu ra ngoài. Danh sách giọng đọc tùy thuộc vào hệ điều hành.
 - Dữ liệu không được đồng bộ giữa các máy hoặc trình duyệt. Xóa dữ liệu trang web trong trình duyệt có thể xóa các thẻ đã lưu.
-- Trong mục **Tổng các từ vựng**, chọn **Chia sẻ thư mục** để tạo link chứa bản sao các thẻ. Người nhận mở link, xem trước rồi thêm thư mục vào dữ liệu riêng trên máy của họ; nội dung link không tự cập nhật khi bạn sửa bộ từ. Link dùng nén dữ liệu, không mã hóa bảo mật, nên không chia sẻ thẻ có thông tin riêng tư.
+- Trong mục **Tổng các từ vựng**, chọn **Chia sẻ thư mục** để tạo link chứa bản sao các thẻ. Người nhận mở link, xem trước rồi thêm thư mục vào dữ liệu riêng trên máy của họ; nội dung link không tự cập nhật khi bạn sửa bộ từ. Dữ liệu được nén và lưu trong Cloudflare KV, link tạo ra chỉ còn một mã ngắn dạng `.../#s=abc123XYZ`. Nếu chưa cấu hình KV hoặc đang ngoại tuyến, ứng dụng tự quay về link dài chứa dữ liệu. Link không mã hóa bảo mật, nên không chia sẻ thẻ có thông tin riêng tư.
 - Nhận diện chữ và tách các hàng/cột của bảng ảnh thực hiện ngay trong trình duyệt bằng Tesseract OCR; ảnh không được gửi lên dịch vụ AI bên ngoài. Luôn kiểm tra bảng xem trước trước khi lưu.
 - Có thể chọn nhiều ảnh cùng lúc; ứng dụng nhận diện lần lượt rồi gộp các dòng vào một bảng xem trước.

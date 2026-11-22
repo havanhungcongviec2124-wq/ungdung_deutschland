@@ -15,7 +15,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 const appOrigin = "app://wortkarte";
-const distDirectory = path.join(app.getAppPath(), "dist");
+const distDirectory = path.join(app.getAppPath(), "dist", "client");
 const contentTypes = {
   ".css": "text/css",
   ".html": "text/html",

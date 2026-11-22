@@ -2,6 +2,8 @@ const MAX_SHARE_SIZE = 5 * 1024 * 1024;
 const MAX_SHARE_TOKEN_LENGTH = 1024 * 1024;
 const MAX_CARDS = 10000;
 const SHARE_WEB_ORIGIN = "https://ungdung-deutschland.havanhungcongviec2124.workers.dev";
+const SHARE_CODE_PATTERN =
+  /^[23456789ABCDEFHKLMNPQRSTUVWXYZabcdefhkmnpqrstuvwxyz]{9}$/;
 
 function bytesToBase64Url(bytes) {
   let binary = "";
@@ -44,6 +46,72 @@ async function transformBytes(bytes, StreamType, sizeLimit) {
   return result;
 }
 
+function getShareApiOrigin() {
+  return window.location.protocol === "app:"
+    ? SHARE_WEB_ORIGIN
+    : window.location.origin;
+}
+
+function buildShareLink(hash) {
+  const base =
+    window.location.protocol === "app:"
+      ? `${SHARE_WEB_ORIGIN}/`
+      : window.location.href;
+  const url = new URL(base);
+  url.hash = hash;
+  return url.href;
+}
+
+async function createShortShareUrl(token) {
+  const response = await fetch(`${getShareApiOrigin()}/api/shares`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) {
+    throw new Error(`Máy chủ trả về lỗi ${response.status}.`);
+  }
+
+  const body = await response.json();
+  if (typeof body?.code !== "string" || !SHARE_CODE_PATTERN.test(body.code)) {
+    throw new Error("Mã chia sẻ trả về không hợp lệ.");
+  }
+  return buildShareLink(`s=${body.code}`);
+}
+
+async function readShortShareToken(code) {
+  const value = String(code || "").trim();
+  if (!SHARE_CODE_PATTERN.test(value)) {
+    throw new Error("Mã chia sẻ không hợp lệ.");
+  }
+
+  let response;
+  try {
+    response = await fetch(
+      `${getShareApiOrigin()}/api/shares/${encodeURIComponent(value)}`
+    );
+  } catch {
+    throw new Error("Không thể mở link chia sẻ. Hãy kiểm tra kết nối mạng.");
+  }
+  if (response.status === 404) {
+    throw new Error("Link chia sẻ không tồn tại hoặc đã bị xoá.");
+  }
+  if (!response.ok) {
+    throw new Error("Không thể mở link chia sẻ. Hãy kiểm tra kết nối mạng.");
+  }
+
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("Link chia sẻ không hợp lệ.");
+  }
+  if (typeof body?.token !== "string") {
+    throw new Error("Link chia sẻ không hợp lệ.");
+  }
+  return body.token;
+}
+
 export async function createFolderShareUrl(folder, cards) {
   if (!folder?.name || !Array.isArray(cards) || !cards.length) {
     throw new Error("Thư mục cần có ít nhất một thẻ từ để chia sẻ.");
@@ -81,13 +149,16 @@ export async function createFolderShareUrl(folder, cards) {
     throw new Error("Link chia sẻ quá dài. Hãy chia thư mục thành các bộ nhỏ hơn.");
   }
 
-  const shareUrl =
-    window.location.protocol === "app:"
-      ? `${SHARE_WEB_ORIGIN}/`
-      : window.location.href;
-  const url = new URL(shareUrl);
-  url.hash = `share=${token}`;
-  return url.href;
+  try {
+    return await createShortShareUrl(token);
+  } catch (error) {
+    console.warn(
+      "Không thể tạo link chia sẻ ngắn, dùng link dài dự phòng:",
+      error
+    );
+  }
+
+  return buildShareLink(`share=${token}`);
 }
 
 export async function readFolderShareToken(token) {
@@ -165,23 +236,37 @@ export async function readFolderShareToken(token) {
   };
 }
 
+export async function readFolderShareCode(code) {
+  return readFolderShareToken(await readShortShareToken(code));
+}
+
 export async function readFolderShareLink(value) {
   const input = String(value || "").trim();
   if (!input) {
     throw new Error("Hãy dán link chia sẻ thư mục.");
   }
 
-  let token = input;
-  if (!/^[gj][A-Za-z0-9_-]+$/.test(input)) {
-    let url;
-    try {
-      url = new URL(input);
-    } catch {
-      throw new Error("Link không hợp lệ. Hãy dán link chia sẻ WortKarte.");
-    }
-    token = new URLSearchParams(url.hash.slice(1)).get("share") || "";
+  if (SHARE_CODE_PATTERN.test(input)) {
+    return readFolderShareCode(input);
+  }
+  if (/^[gj][A-Za-z0-9_-]+$/.test(input)) {
+    return readFolderShareToken(input);
   }
 
+  let url;
+  try {
+    url = new URL(input);
+  } catch {
+    throw new Error("Link không hợp lệ. Hãy dán link chia sẻ WortKarte.");
+  }
+
+  const params = new URLSearchParams(url.hash.slice(1));
+  const code = params.get("s");
+  if (code) {
+    return readFolderShareCode(code);
+  }
+
+  const token = params.get("share") || "";
   if (!token) {
     throw new Error("Link không chứa dữ liệu thư mục được chia sẻ.");
   }

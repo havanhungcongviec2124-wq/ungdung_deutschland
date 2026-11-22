@@ -21,7 +21,7 @@
     },
     "files": [
       "electron/**/*",
-      "dist/**/*",
+      "dist/client/**/*",
       "package.json"
     ],
     "mac": {

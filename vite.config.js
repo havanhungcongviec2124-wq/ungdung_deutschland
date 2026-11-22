@@ -17,9 +17,16 @@ const ocrAssets = new Map([
 ]);
 
 function localOcrAssets() {
+  let isWorkerBuild = false;
   return {
     name: "local-ocr-assets",
+    configResolved(config) {
+      isWorkerBuild = Boolean(config.build.ssr);
+    },
     async buildStart() {
+      // The client build emits these files as static assets. The Worker build
+      // must not treat them as additional Worker modules.
+      if (isWorkerBuild) return;
       await Promise.all([...ocrAssets].map(async ([fileName, sourcePath]) => {
         this.emitFile({
           type: "asset",

@@ -31,6 +31,7 @@ import {
 import { createWorker } from "tesseract.js";
 import {
   createFolderShareUrl,
+  readFolderShareCode,
   readFolderShareLink,
   readFolderShareToken,
 } from "./lib/folderSharing";
@@ -88,6 +89,7 @@ function App() {
   const [studyIndex, setStudyIndex] = useState(0);
   const [studyCards, setStudyCards] = useState([]);
   const [studySourceCards, setStudySourceCards] = useState([]);
+  const [studyLimit, setStudyLimit] = useState("");
   const [studyMode, setStudyMode] = useState("flashcard");
   const [quizOptions, setQuizOptions] = useState([]);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -127,6 +129,18 @@ function App() {
     (total, group) => total + group.length - 1,
     0
   );
+
+  const parsedStudyLimit = Number.parseInt(studyLimit, 10);
+  const studyLimitValue = Math.min(
+    studySourceCards.length,
+    Math.max(
+      1,
+      Number.isFinite(parsedStudyLimit) ? parsedStudyLimit : studySourceCards.length
+    )
+  );
+  const studyLimitInvalid =
+    Number.isFinite(parsedStudyLimit) &&
+    (parsedStudyLimit < 1 || parsedStudyLimit > studySourceCards.length);
 
   const dailyGoal = Math.max(1, Number(dailyGoals[activeFolder]) || defaultDailyGoal);
   const dailyStats = getDailyFolderStats(reviewHistory, activeFolder, folderCards, dailyGoal);
@@ -177,16 +191,22 @@ function App() {
   }, [folders, cards, activeFolder, reviewHistory, dailyGoals, canPersist]);
 
   useEffect(() => {
-    const match = window.location.hash.match(/^#share=(.+)$/);
-    if (!match) return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const shortCode = params.get("s");
+    const longToken = params.get("share");
+    if (!shortCode && !longToken) return;
 
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${window.location.search}`
-    );
-    readFolderShareToken(match[1])
+    const sharedFolderPromise = shortCode
+      ? readFolderShareCode(shortCode)
+      : readFolderShareToken(longToken);
+
+    sharedFolderPromise
       .then((share) => {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${window.location.search}`
+        );
         setSharedFolder(share);
         setModal("shared-folder");
       })
@@ -595,10 +615,11 @@ function App() {
   function openStudySetup(list = folderCards) {
     if (!list.length) return toast("Thư mục này chưa có thẻ từ.");
     setStudySourceCards(list);
+    setStudyLimit(String(list.length));
     setModal("study");
   }
 
-  function startStudy(mode, list = studySourceCards) {
+  function startStudy(mode, list = studySourceCards, limit = studyLimit) {
     if (!list.length) return toast("Thư mục này chưa có thẻ từ.");
     if (
       mode !== "flashcard" &&
@@ -610,7 +631,13 @@ function App() {
     ) {
       return toast("Cần ít nhất 2 đáp án khác nhau để tạo bài trắc nghiệm.");
     }
-    const shuffledCards = shuffle(list);
+    const parsedLimit = Number.parseInt(limit, 10);
+    const cardCount = Math.min(
+      list.length,
+      Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : list.length)
+    );
+    // Xáo trộn danh sách nguồn rồi lấy đúng số lượng: các thẻ không bao giờ trùng nhau.
+    const shuffledCards = shuffle(list).slice(0, cardCount);
     setStudyCards(shuffledCards);
     setStudyMode(mode);
     setQuizOptions(
@@ -970,12 +997,11 @@ function App() {
             knownCount={knownIds.length}
             unknownCount={unknownIds.length}
             totalCount={studyCards.length}
-            onRetry={() =>
-              startStudy(
-                studyMode,
-                studyCards.filter((card) => unknownIds.includes(card.id))
-              )
-            }
+            onRetry={() => {
+              const retryCards = studyCards.filter((card) => unknownIds.includes(card.id));
+              // Khi ôn lại từ chưa thuộc, luôn dùng tất cả thẻ đó bất kể số lượng đã nhập.
+              startStudy(studyMode, retryCards, retryCards.length);
+            }}
             onExit={() => setView("cards")}
           />
         )}
@@ -1127,7 +1153,43 @@ function App() {
       {modal === "study" && (
         <Modal title="Chọn kiểu kiểm tra" onClose={() => setModal("")}>
           <div className="study-mode-list">
-            <p className="muted">Chọn cách ôn tập cho {studySourceCards.length} thẻ từ.</p>
+            <p className="muted">
+              Chọn cách ôn tập cho {studySourceCards.length} thẻ từ
+              {studyLimitValue < studySourceCards.length
+                ? ` (sẽ lấy ngẫu nhiên ${studyLimitValue} thẻ)`
+                : ""}
+              .
+            </p>
+
+            <div className="study-limit-field">
+              <div className="study-limit-heading">
+                <label htmlFor="study-limit-input">Số thẻ muốn kiểm tra</label>
+                <button
+                  type="button"
+                  className="study-limit-all"
+                  onClick={() => setStudyLimit(String(studySourceCards.length))}
+                >
+                  Tất cả
+                </button>
+              </div>
+              <div className="study-limit-control">
+                <input
+                  id="study-limit-input"
+                  type="number"
+                  min="1"
+                  max={studySourceCards.length}
+                  value={studyLimit}
+                  onChange={(event) => setStudyLimit(event.target.value)}
+                />
+                <span>/ {studySourceCards.length} thẻ</span>
+              </div>
+              <small className={studyLimitInvalid ? "study-limit-error" : ""}>
+                {studyLimitInvalid
+                  ? `Nhập số từ 1 đến ${studySourceCards.length}.`
+                  : "Thẻ sẽ được chọn ngẫu nhiên và không trùng nhau."}
+              </small>
+            </div>
+
             <button className="study-mode-option" onClick={() => startStudy("flashcard")}>
               <strong>Lật thẻ từ vựng</strong>
               <span>Xem từ tiếng Đức rồi tự nhớ nghĩa tiếng Việt.</span>
