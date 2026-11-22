@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronRight,
+  EyeOff,
+  Lightbulb,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -40,6 +42,7 @@ export default function QuestionPage({
   const [promptError, setPromptError] = useState("");
   const [promptRetry, setPromptRetry] = useState(0);
   const [answer, setAnswer] = useState("");
+  const [showHint, setShowHint] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
@@ -54,6 +57,7 @@ export default function QuestionPage({
     setPromptError("");
     setPromptRetry(0);
     setAnswer("");
+    setShowHint(false);
     setFeedback(null);
     setChecking(false);
     setCheckError("");
@@ -215,16 +219,40 @@ export default function QuestionPage({
           <div className="sentence-task question-read">
             <span className="vocab-language">CÂU HỎI TIẾNG ĐỨC</span>
             <strong>{prompt.question}</strong>
-            <button
-              className="voice-button inline-voice"
-              onClick={() => onSpeak(prompt.question)}
-              title="Nghe lại câu hỏi"
-              aria-label="Nghe lại câu hỏi"
-            >
-              <Volume2 size={16} />
-            </button>
-            {prompt.translation && <small>{prompt.translation}</small>}
-            {prompt.hint && <small>Gợi ý: {prompt.hint}</small>}
+            <div className="question-read-actions">
+              <button
+                className="voice-button inline-voice"
+                onClick={() => onSpeak(prompt.question)}
+                title="Nghe lại câu hỏi"
+                aria-label="Nghe lại câu hỏi"
+              >
+                <Volume2 size={16} /> 
+              </button>
+              {(prompt.translation || prompt.hint) && (
+                <button
+                  type="button"
+                  className="question-hint-toggle"
+                  onClick={() => setShowHint((value) => !value)}
+                  aria-expanded={showHint}
+                >
+                  {showHint ? (
+                    <>
+                      <EyeOff size={14} /> Ẩn dịch và gợi ý
+                    </>
+                  ) : (
+                    <>
+                      <Lightbulb size={14} /> Dịch và gợi ý
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            {showHint && (prompt.translation || prompt.hint) && (
+              <div className="question-hint-panel">
+                {prompt.translation && <small>{prompt.translation}</small>}
+                {prompt.hint && <small>Gợi ý: {prompt.hint}</small>}
+              </div>
+            )}
           </div>
         )}
 

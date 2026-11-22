@@ -1499,6 +1499,37 @@ button { cursor: pointer; }
   justify-self: center;
   font-size: 10px;
 }
+.question-read-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.question-hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid #dcd8ff;
+  border-radius: 999px;
+  background: #fff;
+  color: #5b4ee0;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.question-hint-toggle:hover { background: #faf9ff; border-color: #b9b2ff; }
+.question-hint-panel {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffffffaa;
+}
+.question-hint-panel small { color: #6f7488; font-size: 11px; line-height: 1.6; }
 .question-listen {
   width: min(100%, 560px);
   display: grid;
