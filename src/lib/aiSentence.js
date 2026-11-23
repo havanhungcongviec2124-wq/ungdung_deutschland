@@ -1,6 +1,14 @@
 import { getApiOrigin } from "./folderSharing";
 import { shuffle } from "./appData";
 
+export function normalizeGermanSpacing(value) {
+  return String(value || "")
+    .replace(/[\u00a0\u202f]/g, " ")
+    .replace(/\s+([.,!?;:])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const AI_TIMEOUT_MS = 25000;
 const AI_LEVEL_STORAGE_KEY = "wortkarte.ai.sentenceLevel";
 export const DEFAULT_AI_LEVEL = "A1.1";
@@ -142,13 +150,20 @@ export async function checkSentence(card, sentence, level) {
   if (typeof result?.correct !== "boolean") {
     throw new Error("AI trả về kết quả chấm điểm không hợp lệ.");
   }
-  return {
-    correct: result.correct,
-    corrected: typeof result.corrected === "string" && result.corrected.trim()
-      ? result.corrected.trim()
-      : value,
-    explanation: typeof result.explanation === "string" ? result.explanation.trim() : "",
-  };
+  let corrected = typeof result.corrected === "string" && result.corrected.trim()
+    ? result.corrected.trim()
+    : value;
+  let correct = result.correct;
+  let explanation = typeof result.explanation === "string" ? result.explanation.trim() : "";
+
+  const normalizedValue = normalizeGermanSpacing(value);
+  if (normalizedValue !== value.trim() && normalizeGermanSpacing(corrected) === normalizedValue) {
+    correct = true;
+    corrected = normalizedValue;
+    explanation = "Câu đúng ngữ pháp và đúng ý. Chỉ khác dấu cách trước dấu câu, không làm câu sai.";
+  }
+
+  return { correct, corrected, explanation };
 }
 
 export async function requestQuestionPrompt(card, level) {
@@ -212,6 +227,18 @@ export async function checkAnswer(card, question, answer, level, expectedAnswer 
     : value;
   let correct = result.correct;
   let explanation = typeof result.explanation === "string" ? result.explanation.trim() : "";
+
+  const normalizedValue = normalizeGermanSpacing(value);
+  if (
+    normalizedValue !== value.trim() &&
+    (normalizeGermanSpacing(corrected) === normalizedValue ||
+      (expectedAnswer && normalizeGermanSpacing(expectedAnswer) === normalizedValue))
+  ) {
+    correct = true;
+    corrected = normalizedValue;
+    explanation =
+      "Câu đúng ngữ pháp và đúng ý. Chỉ khác dấu cách trước dấu câu, không làm câu sai.";
+  }
 
   // AI đôi khi vẫn bám mẫu câu, ví dụ bắt "Das ist Bách." mà chấm sai
   // "Bách ist mein bester Freund.". So theo từ nội dung thì câu này vẫn đúng ý.

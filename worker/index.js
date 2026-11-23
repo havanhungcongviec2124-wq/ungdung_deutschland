@@ -16,7 +16,7 @@ const WORKERS_AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const MAX_AI_BODY_BYTES = 8 * 1024;
 const AI_RATE_LIMIT_PER_MINUTE = 15;
 // Cache kết quả theo nội dung: học lại cùng một từ / thử lại cùng một câu thì gần như tức thì.
-const AI_CACHE_PREFIX = "ai-cache:v3:";
+const AI_CACHE_PREFIX = "ai-cache:v5:";
 const AI_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const AI_SYSTEM_PROMPT =
   "Bạn là giáo viên tiếng Đức giàu kinh nghiệm, dạy học sinh Việt Nam. " +
@@ -579,6 +579,15 @@ async function sentenceQuestion(request, env) {
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
 
+// Khoảng trắng thừa trước dấu câu là lỗi định dạng, không phải lỗi ngữ pháp.
+function normalizeGermanSpacing(value) {
+  return String(value || "")
+    .replace(/[\u00a0\u202f]/g, " ")
+    .replace(/\s+([.,!?;:])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function sentenceCheck(request, env) {
   const body = await parseAiRequest(request);
   if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
@@ -619,6 +628,7 @@ async function sentenceCheck(request, env) {
       "Chỉ bắt lỗi trong trình độ đã chọn; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
       "usesWord là true nếu câu trả lời dùng từ của thẻ hoặc dạng biến đổi rõ ràng; với từ hỏi thì true khi nội dung đáp án liên quan đúng tới từ hỏi. " +
       "correct chỉ là true khi câu trả lời đúng ý câu hỏi, tự nhiên, đúng ngữ pháp và đúng trình độ. " +
+      "KHÔNG chấm sai chỉ vì khoảng trắng thừa trước dấu câu (., ,, !, ?, :, ;) hoặc dấu cách kiểu không gãy; trong tiếng Đức không viết dấu cách trước các dấu này nhưng đó chỉ là lỗi định dạng nhỏ, vẫn tính đúng và chỉ gợi ý bỏ dấu cách thừa. " +
       "corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. " +
       "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn."
     : `Chấm câu tiếng Đức của học sinh ở trình độ ${level}. ${levelGuidance(level)} ` +
@@ -626,6 +636,7 @@ async function sentenceCheck(request, env) {
       "Chỉ bắt lỗi những gì nằm trong trình độ đã chọn; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
       "usesWord là true nếu câu có từ đã cho hoặc dạng biến đổi rõ ràng của nó. " +
       "correct chỉ là true khi câu đúng ngữ pháp, tự nhiên, đúng trình độ VÀ dùng đúng từ. " +
+      "KHÔNG chấm sai chỉ vì khoảng trắng thừa trước dấu câu (., ,, !, ?, :, ;) hoặc dấu cách kiểu không gãy; trong tiếng Đức không viết dấu cách trước các dấu này nhưng đó chỉ là lỗi định dạng nhỏ, vẫn tính đúng và chỉ gợi ý bỏ dấu cách thừa. " +
       "corrected là câu tiếng Đức đã sửa hay nhất; nếu câu đã đúng thì giữ nguyên. " +
       "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
   const result = await callAi(env, instruction, body, sentence, SENTENCE_CHECK_SCHEMA);
@@ -635,6 +646,22 @@ async function sentenceCheck(request, env) {
   let correct = result.correct === true && (isQuestion || usesWord);
   let corrected = cleanText(result.corrected, 400) || sentence;
   let explanation = cleanText(result.explanation, 600) || "AI chưa đưa ra nhận xét.";
+
+  // AI đôi khi vẫn trừ điểm vì dấu cách thừa trước dấu hỏi/chấm/phẩy.
+  // Sau khi bỏ khoảng trắng đó mà câu trùng đáp án mẫu/câu sửa thì vẫn là đúng.
+  const normalizedAnswer = normalizeGermanSpacing(sentence);
+  const normalizedCorrected = normalizeGermanSpacing(corrected);
+  const normalizedExpected = normalizeGermanSpacing(expectedAnswer);
+  if (
+    normalizedAnswer !== sentence.trim() &&
+    (normalizedAnswer === normalizedCorrected ||
+      (isQuestion && normalizedExpected && normalizedAnswer === normalizedExpected))
+  ) {
+    correct = true;
+    corrected = normalizedAnswer;
+    explanation =
+      "Câu đúng ngữ pháp và đúng ý. Chỉ khác dấu cách trước dấu câu, không làm câu sai.";
+  }
 
   // Lớp an toàn: AI đôi khi vẫn ưu tiên mẫu câu. Nếu thông tin chính của đáp án
   // có mặt trong câu của học sinh (không phủ định), coi như trả lời đúng ý.
@@ -669,6 +696,7 @@ function speakingGradingInstruction() {
     "Đánh giá NGỮ NGHĨA trước, sau đó mới xét ngữ pháp: câu tự nhiên, đúng ý câu hỏi, đúng ngữ pháp A2 là ĐÚNG dù khác mẫu hoặc không liệt kê từng gợi ý. " +
     "Không bắt người học lặp lại chính từ hỏi (wer/was/wo/wie...). " +
     "Chỉ bắt lỗi trong trình độ A2; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
+    "KHÔNG chấm sai chỉ vì khoảng trắng thừa trước dấu câu (., ,, !, ?, :, ;); đó là lỗi định dạng nhỏ, vẫn tính đúng. " +
     "corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. " +
     "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
 }
