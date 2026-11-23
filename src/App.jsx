@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, CheckCircle2, Layers3, Link2, Upload } from "lucide-react";
+import { BookOpen, CheckCircle2, Layers3, Link2, Mic, Upload } from "lucide-react";
 import AppContent from "./components/AppContent";
 import AppModals from "./components/AppModals";
 import AppShell from "./components/AppShell";
@@ -8,12 +8,14 @@ import { useImport } from "./hooks/useImport";
 import { useLibrary } from "./hooks/useLibrary";
 import { useNotice } from "./hooks/useNotice";
 import { useSharing } from "./hooks/useSharing";
+import { useSpeaking } from "./hooks/useSpeaking";
 import { useStudy } from "./hooks/useStudy";
 import { readLocalData } from "./lib/appData";
 
 const NAV_ITEMS = [
   { id: "home", label: "Tổng quan", icon: Layers3 },
   { id: "cards", label: "Thẻ từ vựng", icon: BookOpen },
+  { id: "speaking", label: "Luyện nói", icon: Mic },
   { id: "import", label: "Nhập hàng loạt", icon: Upload },
   { id: "shared-link", label: "Thêm bằng link chia sẻ", icon: Link2 },
 ];
@@ -28,7 +30,8 @@ export default function App() {
   const library = useLibrary({ initialData, toast, setNotice, setModal, setView });
   const study = useStudy({ library, toast, setModal, setView });
   const importFlow = useImport({ library, toast, setNotice, setModal, setView });
-  const sharing = useSharing({ library, toast, setNotice, setModal, setView });
+  const speaking = useSpeaking();
+  const sharing = useSharing({ library, speaking, toast, setNotice, setModal, setView });
   const install = useAppInstall({ toast, setModal });
 
   // Các hành động dùng chung giữa thanh điều hướng, nội dung và modal.
@@ -47,6 +50,8 @@ export default function App() {
     openStudySetup: study.openStudySetup,
     openDailyReview: study.openDailyReview,
     retryStudy: study.retryStudy,
+    openSpeakingAdd: () => setModal("speaking-add"),
+    openSpeakingOverview: () => setModal("speaking-overview"),
   };
 
   return (
@@ -81,6 +86,7 @@ export default function App() {
           study={study}
           importFlow={importFlow}
           sharing={sharing}
+          speaking={speaking}
           actions={actions}
         />
       </AppShell>
@@ -91,6 +97,7 @@ export default function App() {
         library={library}
         study={study}
         sharing={sharing}
+        speaking={speaking}
       />
 
       {notice && (

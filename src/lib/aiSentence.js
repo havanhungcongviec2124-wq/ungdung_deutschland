@@ -79,7 +79,7 @@ function cardPayload(card, level) {
   };
 }
 
-async function postAi(path, payload) {
+export async function postAi(path, payload) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   let response;

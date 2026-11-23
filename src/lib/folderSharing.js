@@ -1,6 +1,7 @@
 const MAX_SHARE_SIZE = 5 * 1024 * 1024;
 const MAX_SHARE_TOKEN_LENGTH = 1024 * 1024;
 const MAX_CARDS = 10000;
+const MAX_SHARED_TOPICS = 200;
 const SHARE_WEB_ORIGIN = "https://ungdung-deutschland.havanhungcongviec2124.workers.dev";
 const SHARE_CODE_PATTERN =
   /^[23456789ABCDEFHKLMNPQRSTUVWXYZabcdefhkmnpqrstuvwxyz]{9}$/;
@@ -62,7 +63,7 @@ function buildShareLink(hash) {
   return url.href;
 }
 
-async function createShortShareUrl(token) {
+async function createShortShareUrl(token, hashKey = "s") {
   const response = await fetch(`${getApiOrigin()}/api/shares`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -76,7 +77,7 @@ async function createShortShareUrl(token) {
   if (typeof body?.code !== "string" || !SHARE_CODE_PATTERN.test(body.code)) {
     throw new Error("Mã chia sẻ trả về không hợp lệ.");
   }
-  return buildShareLink(`s=${body.code}`);
+  return buildShareLink(`${hashKey}=${body.code}`);
 }
 
 async function readShortShareToken(code) {
@@ -112,22 +113,10 @@ async function readShortShareToken(code) {
   return body.token;
 }
 
-export async function createFolderShareUrl(folder, cards) {
-  if (!folder?.name || !Array.isArray(cards) || !cards.length) {
-    throw new Error("Thư mục cần có ít nhất một thẻ từ để chia sẻ.");
-  }
-  if (cards.length > MAX_CARDS) {
-    throw new Error(`Chỉ có thể chia sẻ tối đa ${MAX_CARDS} thẻ trong một lần.`);
-  }
-
-  const payload = {
-    version: 1,
-    folder: { name: folder.name, color: folder.color },
-    cards: cards.map(({ front, plural, back, note }) => ({ front, plural, back, note })),
-  };
+async function encodeSharePayload(payload) {
   const jsonBytes = new TextEncoder().encode(JSON.stringify(payload));
   if (jsonBytes.length > MAX_SHARE_SIZE) {
-    throw new Error("Dữ liệu thư mục quá lớn để tạo link chia sẻ.");
+    throw new Error("Dữ liệu chia sẻ quá lớn để tạo link.");
   }
 
   let prefix = "j";
@@ -146,22 +135,12 @@ export async function createFolderShareUrl(folder, cards) {
 
   const token = `${prefix}${bytesToBase64Url(payloadBytes)}`;
   if (token.length > MAX_SHARE_TOKEN_LENGTH) {
-    throw new Error("Link chia sẻ quá dài. Hãy chia thư mục thành các bộ nhỏ hơn.");
+    throw new Error("Link chia sẻ quá dài. Hãy chia nhỏ dữ liệu trước khi gửi.");
   }
-
-  try {
-    return await createShortShareUrl(token);
-  } catch (error) {
-    console.warn(
-      "Không thể tạo link chia sẻ ngắn, dùng link dài dự phòng:",
-      error
-    );
-  }
-
-  return buildShareLink(`share=${token}`);
+  return token;
 }
 
-export async function readFolderShareToken(token) {
+async function decodeSharePayload(token) {
   if (!token || token.length > MAX_SHARE_TOKEN_LENGTH) {
     throw new Error("Link chia sẻ không hợp lệ hoặc quá dài.");
   }
@@ -175,22 +154,20 @@ export async function readFolderShareToken(token) {
     if (typeof DecompressionStream === "undefined") {
       throw new Error("Trình duyệt này không hỗ trợ giải nén link chia sẻ.");
     }
-    bytes = await transformBytes(
-      bytes,
-      DecompressionStream,
-      MAX_SHARE_SIZE
-    );
+    bytes = await transformBytes(bytes, DecompressionStream, MAX_SHARE_SIZE);
   }
   if (bytes.length > MAX_SHARE_SIZE) {
     throw new Error("Dữ liệu link chia sẻ vượt quá giới hạn cho phép.");
   }
 
-  let payload;
   try {
-    payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     throw new Error("Không thể đọc dữ liệu từ link chia sẻ.");
   }
+}
+
+function normalizeFolderShare(payload) {
   if (
     payload?.version !== 1 ||
     typeof payload.folder?.name !== "string" ||
@@ -228,6 +205,7 @@ export async function readFolderShareToken(token) {
   });
 
   return {
+    type: "folder",
     folder: {
       name: payload.folder.name.trim(),
       color: /^#[0-9a-f]{6}$/i.test(payload.folder.color) ? payload.folder.color : "#6d5dfc",
@@ -236,22 +214,72 @@ export async function readFolderShareToken(token) {
   };
 }
 
+function normalizeSpeakingShare(payload) {
+  if (
+    payload?.version !== 2 ||
+    payload?.type !== "speaking" ||
+    !Array.isArray(payload.topics) ||
+    payload.topics.length === 0 ||
+    payload.topics.length > MAX_SHARED_TOPICS
+  ) {
+    throw new Error("Link chia sẻ không chứa đề tài luyện nói hợp lệ.");
+  }
+
+  const topics = payload.topics.map((topic) => {
+    const question = String(topic?.question || "").trim();
+    if (!question || question.length > 600) {
+      throw new Error("Link chia sẻ có đề tài không hợp lệ.");
+    }
+    const hints = Array.isArray(topic.hints)
+      ? topic.hints
+          .map((hint) => String(hint || "").trim())
+          .filter(Boolean)
+          .slice(0, 8)
+      : [];
+    return { topicId: "shared", question, hints, custom: true };
+  });
+
+  return { type: "speaking", topics };
+}
+
+// ---------- Thư mục từ vựng (link cũ, giữ nguyên định dạng) ----------
+export async function createFolderShareUrl(folder, cards) {
+  if (!folder?.name || !Array.isArray(cards) || !cards.length) {
+    throw new Error("Thư mục cần có ít nhất một thẻ từ để chia sẻ.");
+  }
+  if (cards.length > MAX_CARDS) {
+    throw new Error(`Chỉ có thể chia sẻ tối đa ${MAX_CARDS} thẻ trong một lần.`);
+  }
+
+  const payload = {
+    version: 1,
+    folder: { name: folder.name, color: folder.color },
+    cards: cards.map(({ front, plural, back, note }) => ({ front, plural, back, note })),
+  };
+  const token = await encodeSharePayload(payload);
+
+  try {
+    return await createShortShareUrl(token);
+  } catch (error) {
+    console.warn("Không thể tạo link chia sẻ ngắn, dùng link dài dự phòng:", error);
+  }
+  return buildShareLink(`share=${token}`);
+}
+
+export async function readFolderShareToken(token) {
+  return normalizeFolderShare(await decodeSharePayload(token));
+}
+
 export async function readFolderShareCode(code) {
   return readFolderShareToken(await readShortShareToken(code));
 }
 
 export async function readFolderShareLink(value) {
   const input = String(value || "").trim();
-  if (!input) {
-    throw new Error("Hãy dán link chia sẻ thư mục.");
-  }
+  if (!input) throw new Error("Hãy dán link chia sẻ thư mục.");
 
-  if (SHARE_CODE_PATTERN.test(input)) {
-    return readFolderShareCode(input);
-  }
-  if (/^[gj][A-Za-z0-9_-]+$/.test(input)) {
-    return readFolderShareToken(input);
-  }
+  if (SHARE_CODE_PATTERN.test(input)) return readFolderShareCode(input);
+  if (/^[gj][A-Za-z0-9_-]+$/.test(input)) return readFolderShareToken(input);
 
   let url;
   try {
@@ -262,13 +290,86 @@ export async function readFolderShareLink(value) {
 
   const params = new URLSearchParams(url.hash.slice(1));
   const code = params.get("s");
-  if (code) {
-    return readFolderShareCode(code);
-  }
+  if (code) return readFolderShareCode(code);
 
   const token = params.get("share") || "";
   if (!token) {
     throw new Error("Link không chứa dữ liệu thư mục được chia sẻ.");
   }
   return readFolderShareToken(token);
+}
+
+// ----------Đề tài luyện nói----------
+export async function createSpeakingShareUrl(topics) {
+  if (!Array.isArray(topics) || !topics.length) {
+    throw new Error("Chọn ít nhất một đề tài để chia sẻ.");
+  }
+  if (topics.length > MAX_SHARED_TOPICS) {
+    throw new Error(`Chỉ có thể chia sẻ tối đa ${MAX_SHARED_TOPICS} đề tài.`);
+  }
+
+  const payload = {
+    version: 2,
+    type: "speaking",
+    topics: topics.map((topic) => ({
+      question: String(topic?.question || "").trim(),
+      hints: Array.isArray(topic?.hints) ? topic.hints.slice(0, 8) : [],
+    })),
+  };
+  const token = await encodeSharePayload(payload);
+
+  try {
+    return await createShortShareUrl(token, "sp");
+  } catch (error) {
+    console.warn("Không thể tạo link nói ngắn, dùng link dài dự phòng:", error);
+  }
+  return buildShareLink(`speaking=${token}`);
+}
+
+export async function readSpeakingShareToken(token) {
+  return normalizeSpeakingShare(await decodeSharePayload(token));
+}
+
+export async function readSpeakingShareCode(code) {
+  return readSpeakingShareToken(await readShortShareToken(code));
+}
+
+// Dùng cho cả ô "Thêm bằng link chia sẻ" và khi mở link từ thanh địa chỉ.
+export async function readShareLink(value) {
+  const input = String(value || "").trim();
+  if (!input) throw new Error("Hãy dán link chia sẻ WortKarte.");
+
+  if (SHARE_CODE_PATTERN.test(input) || /^[gj][A-Za-z0-9_-]+$/.test(input)) {
+    const payload = SHARE_CODE_PATTERN.test(input)
+      ? await decodeSharePayload(await readShortShareToken(input))
+      : await decodeSharePayload(input);
+    return payload?.type === "speaking"
+      ? normalizeSpeakingShare(payload)
+      : normalizeFolderShare(payload);
+  }
+
+  let url;
+  try {
+    url = new URL(input);
+  } catch {
+    throw new Error("Link không hợp lệ. Hãy dán link chia sẻ WortKarte.");
+  }
+
+  const params = new URLSearchParams(url.hash.slice(1));
+  const speakingCode = params.get("sp");
+  if (speakingCode) return readSpeakingShareCode(speakingCode);
+  const speakingToken = params.get("speaking");
+  if (speakingToken) return readSpeakingShareToken(speakingToken);
+
+  return readFolderShareLink(input);
+}
+
+export function readShareHashParams() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  return {
+    shortCode: params.get("s"),
+    longToken: params.get("share"),
+    speakingCode: params.get("sp"),
+    speakingToken: params.get("speaking"),
+  };
 }

@@ -88,6 +88,29 @@ const SENTENCE_QUESTION_SCHEMA = {
   required: ["question", "translation", "hint", "expectedAnswer"],
 };
 
+const SPEAKING_START_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    correct: { type: "BOOLEAN" },
+    corrected: { type: "STRING" },
+    explanation: { type: "STRING" },
+    followUps: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          question: { type: "STRING" },
+          translation: { type: "STRING" },
+          hint: { type: "STRING" },
+        },
+        required: ["question", "translation", "hint"],
+      },
+    },
+  },
+  required: ["correct", "corrected", "explanation", "followUps"],
+};
+const SPEAKING_LEVEL = "A2.2";
+
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
@@ -318,7 +341,7 @@ async function writeAiCache(env, key, body) {
   }
 }
 
-async function callWorkersAi(env, userInstruction, card, sentence, schema) {
+async function callWorkersAi(env, userInstruction, card, sentence, schema, maxTokens = 256) {
   const model = cleanText(env.WORKERS_AI_MODEL, 80) || WORKERS_AI_MODEL;
   const payload = buildAiPayload(card, sentence);
   if (!payload.word) return json({ error: "Thiếu từ vựng cần kiểm tra." }, 400);
@@ -333,7 +356,7 @@ async function callWorkersAi(env, userInstruction, card, sentence, schema) {
     ],
     guided_json: toJsonSchema(schema),
     temperature: 0.2,
-    max_tokens: 256,
+    max_tokens: maxTokens,
   });
 
   const text =
@@ -346,13 +369,13 @@ async function callWorkersAi(env, userInstruction, card, sentence, schema) {
 }
 
 // Gemini bị chặn ở một số region (VD Cloudflare egress ở HKG) -> dùng Workers AI.
-async function callAi(env, userInstruction, card, sentence, schema) {
-  const gemini = await callGemini(env, userInstruction, card, sentence, schema);
+async function callAi(env, userInstruction, card, sentence, schema, maxTokens = 256) {
+  const gemini = await callGemini(env, userInstruction, card, sentence, schema, maxTokens);
   if (!(gemini instanceof Response)) return gemini;
   if (!env.AI) return gemini;
 
   try {
-    return await callWorkersAi(env, userInstruction, card, sentence, schema);
+    return await callWorkersAi(env, userInstruction, card, sentence, schema, maxTokens);
   } catch (error) {
     console.error("Workers AI không trả về kết quả:", error);
     return json(
@@ -390,7 +413,7 @@ async function allowAiRequest(request, env) {
   return true;
 }
 
-async function callGemini(env, userInstruction, card, sentence, schema) {
+async function callGemini(env, userInstruction, card, sentence, schema, maxTokens = 256) {
   const apiKey = cleanText(env.GEMINI_API_KEY, 200);
   if (!apiKey) {
     return json(
@@ -420,7 +443,7 @@ async function callGemini(env, userInstruction, card, sentence, schema) {
     ],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 256,
+      maxOutputTokens: maxTokens,
       responseMimeType: "application/json",
       responseSchema: schema,
     },
@@ -627,6 +650,120 @@ async function sentenceCheck(request, env) {
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
 
+// ---------- Luyện nói (Goethe A2 Sprechen Teil 2) ----------
+function speakingPayload(body, answer) {
+  const question = cleanText(body?.question, 600);
+  const hints = Array.isArray(body?.hints)
+    ? body.hints.slice(0, 8).map((hint) => cleanText(hint, 200)).filter(Boolean)
+    : [];
+  return {
+    level: SPEAKING_LEVEL,
+    word: question,
+    note: hints.join(" | "),
+    sentence: cleanText(answer, 600),
+  };
+}
+
+function speakingGradingInstruction() {
+  return `Chấm câu trả lời tiếng Đức cho một đề nói Goethe A2 (chủ đề và gợi ý nằm trong dữ liệu gửi kèm). Trình độ cố định ${SPEAKING_LEVEL}. ${levelGuidance(SPEAKING_LEVEL)} ` +
+    "Đánh giá NGỮ NGHĨA trước, sau đó mới xét ngữ pháp: câu tự nhiên, đúng ý câu hỏi, đúng ngữ pháp A2 là ĐÚNG dù khác mẫu hoặc không liệt kê từng gợi ý. " +
+    "Không bắt người học lặp lại chính từ hỏi (wer/was/wo/wie...). " +
+    "Chỉ bắt lỗi trong trình độ A2; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. " +
+    "corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. " +
+    "explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn.";
+}
+
+function normalizeFollowUps(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 6)
+    .map((item, index) => ({
+      id: `f${index + 1}`,
+      question: cleanText(item?.question, 300),
+      translation: cleanText(item?.translation, 300),
+      hint: cleanText(item?.hint, 300),
+    }))
+    .filter((item) => item.question);
+}
+
+async function speakingStart(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+  const answer = cleanText(body?.answer, 600);
+  if (!answer) return json({ error: "Hãy viết câu trả lời tiếng Đức." }, 400);
+  if (!cleanText(body?.question, 600)) {
+    return json({ error: "Thiếu đề tài cần luyện nói." }, 400);
+  }
+
+  const payload = speakingPayload(body, answer);
+  // callAi dùng chung buildAiPayload với các endpoint thẻ từ, nên map sang word/note.
+  body.level = payload.level;
+  body.word = payload.word;
+  body.note = payload.note;
+  const cacheKey = await aiCacheKey("speaking-start", payload);
+  const cached = await readAiCache(env, cacheKey);
+  if (cached) return json(cached, 200, { "x-ai-cache": "hit" });
+
+  if (!(await allowAiRequest(request, env))) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+
+  const instruction = speakingGradingInstruction() +
+    "Ngoài ra, hãy tạo từ 1 đến 6 câu hỏi phụ tiếng Đức ngắn, tự nhiên, xoay quanh đúng chủ đề và các gợi ý đã cho để tiếp tục cuộc hội thoại. " +
+    "Mỗi câu hỏi phụ phải khác câu hỏi chính, không trùng nhau, có thể trả lời bằng 1-4 câu ở trình độ A2, " +
+    "kèm translation là nghĩa tiếng Việt và hint là gợi ý ngắn tiếng Việt (tối đa 15 từ). " +
+    "Trả đúng schema, không markdown.";
+
+  const result = await callAi(env, instruction, body, answer, SPEAKING_START_SCHEMA, 1024);
+  if (result instanceof Response) return result;
+
+  const responseBody = {
+    correct: result.correct === true,
+    corrected: cleanText(result.corrected, 400) || answer,
+    explanation: cleanText(result.explanation, 600) || "AI chưa đưa ra nhận xét.",
+    followUps: normalizeFollowUps(result.followUps),
+  };
+  await writeAiCache(env, cacheKey, responseBody);
+  return json(responseBody, 200, { "x-ai-cache": "miss" });
+}
+
+async function speakingCheck(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+  const answer = cleanText(body?.answer, 600);
+  if (!answer) return json({ error: "Hãy viết câu trả lời tiếng Đức." }, 400);
+  if (!cleanText(body?.question, 600)) {
+    return json({ error: "Thiếu câu hỏi cần chấm." }, 400);
+  }
+
+  const payload = speakingPayload(body, answer);
+  body.level = payload.level;
+  body.word = payload.word;
+  body.note = payload.note;
+  const cacheKey = await aiCacheKey("speaking-check", payload);
+  const cached = await readAiCache(env, cacheKey);
+  if (cached) return json(cached, 200, { "x-ai-cache": "hit" });
+
+  if (!(await allowAiRequest(request, env))) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+
+  const instruction = speakingGradingInstruction() +
+    "Đây là một câu hỏi phụ trong cùng đề nói; hãy chấm riêng câu trả lời này dựa trên đúng câu hỏi phụ đã cho. " +
+    "usesWord luôn là true (không dùng trường này để quyết định đúng sai).";
+
+  const result = await callAi(env, instruction, body, answer, SENTENCE_CHECK_SCHEMA);
+  if (result instanceof Response) return result;
+
+  const responseBody = {
+    correct: result.correct === true,
+    corrected: cleanText(result.corrected, 400) || answer,
+    explanation: cleanText(result.explanation, 600) || "AI chưa đưa ra nhận xét.",
+  };
+  await writeAiCache(env, cacheKey, responseBody);
+  return json(responseBody, 200, { "x-ai-cache": "miss" });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -652,6 +789,8 @@ export default {
       "/api/sentence/prompt": sentencePrompt,
       "/api/sentence/question": sentenceQuestion,
       "/api/sentence/check": sentenceCheck,
+      "/api/speaking/start": speakingStart,
+      "/api/speaking/check": speakingCheck,
     };
     if (aiRoutes[url.pathname]) {
       if (request.method === "OPTIONS") return corsPreflight();

@@ -6,9 +6,12 @@ import RenameFolderModal from "./modals/RenameFolderModal";
 import ShareFolderModal from "./modals/ShareFolderModal";
 import SentenceLevelModal from "./modals/SentenceLevelModal";
 import SharedFolderModal from "./modals/SharedFolderModal";
+import SharedSpeakingModal from "./modals/SharedSpeakingModal";
+import SpeakingAddModal from "./modals/SpeakingAddModal";
+import SpeakingOverviewModal from "./modals/SpeakingOverviewModal";
 import StudySetupModal from "./modals/StudySetupModal";
 
-export default function AppModals({ modal, setModal, library, study, sharing }) {
+export default function AppModals({ modal, setModal, library, study, sharing, speaking }) {
   const close = () => setModal("");
 
   return (
@@ -115,6 +118,31 @@ export default function AppModals({ modal, setModal, library, study, sharing }) 
           sharedFolder={sharing.sharedFolder}
           onImport={sharing.importSharedFolder}
           onClose={sharing.closeSharedFolder}
+        />
+      )}
+
+      {modal === "speaking-add" && (
+        <SpeakingAddModal
+          boards={speaking.allBoards}
+          onAddTopics={speaking.addBoards}
+          onClose={close}
+        />
+      )}
+
+      {modal === "speaking-overview" && (
+        <SpeakingOverviewModal
+          boards={speaking.allBoards}
+          onSaveTopic={speaking.updateTopic}
+          onResetTopic={speaking.resetTopic}
+          onClose={close}
+        />
+      )}
+
+      {modal === "shared-speaking" && sharing.sharedSpeaking && (
+        <SharedSpeakingModal
+          share={sharing.sharedSpeaking}
+          onImport={sharing.importSharedSpeaking}
+          onClose={sharing.closeSharedSpeaking}
         />
       )}
 

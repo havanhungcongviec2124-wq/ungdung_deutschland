@@ -10,11 +10,11 @@ export default function SharedLinkPage({
     <section className="shared-link-page">
       <div className="page-heading">
         <div>
-          <div className="eyebrow">CHIA SẺ TỪ VỰNG</div>
+          <div className="eyebrow">CHIA SẺ WORTKARTE</div>
           <h1>Thêm bằng link chia sẻ</h1>
           <p>
-            Dán link thư mục từ vựng người khác gửi để xem trước và thêm vào ứng
-            dụng.
+            Dán link thư mục từ vựng hoặc link đề tài luyện nói người khác gửi để xem
+            trước và thêm vào ứng dụng.
           </p>
         </div>
       </div>
@@ -23,20 +23,20 @@ export default function SharedLinkPage({
         <div className="import-card-icon green-bg">
           <Link2 size={22} />
         </div>
-        <h3>Link thư mục</h3>
+        <h3>Link chia sẻ</h3>
         <p>
-          Thư mục sẽ được thêm vào thiết bị sau khi bạn kiểm tra và xác nhận.
+          Nội dung sẽ được thêm vào thiết bị sau khi bạn kiểm tra và xác nhận.
         </p>
         <textarea
           value={link}
           onChange={(event) => setLink(event.target.value)}
           rows="5"
-          aria-label="Link thư mục được chia sẻ"
-          placeholder="Dán link chia sẻ vào đây"
+          aria-label="Link chia sẻ WortKarte"
+          placeholder="Dán link chia sẻ thư mục hoặc đề tài luyện nói vào đây"
           disabled={loading}
         />
         <div className="format-hint">
-          Chỉ mở link chia sẻ thư mục WortKarte mà bạn tin tưởng.
+          Nhận cả link thư mục từ vựng lẫn link đề tài luyện nói. Chỉ mở link từ người bạn tin tưởng.
         </div>
         <button
           className="btn-primary full"
@@ -44,7 +44,7 @@ export default function SharedLinkPage({
           onClick={onOpenLink}
           disabled={loading || !link.trim()}
         >
-          <Link2 size={17} /> {loading ? "Đang mở link..." : "Xem thư mục"}
+          <Link2 size={17} /> {loading ? "Đang mở link..." : "Xem nội dung"}
         </button>
       </div>
     </section>

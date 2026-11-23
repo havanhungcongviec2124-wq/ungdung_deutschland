@@ -3,41 +3,59 @@ import { colors } from "../lib/appData";
 import {
   createFolderShareUrl,
   readFolderShareCode,
-  readFolderShareLink,
   readFolderShareToken,
+  readShareHashParams,
+  readShareLink,
+  readSpeakingShareCode,
+  readSpeakingShareToken,
 } from "../lib/folderSharing";
 
-export function useSharing({ library, toast, setNotice, setModal, setView }) {
+export function useSharing({ library, speaking, toast, setNotice, setModal, setView }) {
   const [shareUrl, setShareUrl] = useState("");
   const [sharedFolder, setSharedFolder] = useState(null);
+  const [sharedSpeaking, setSharedSpeaking] = useState(null);
   const [sharedLinkDraft, setSharedLinkDraft] = useState("");
   const [openingSharedLink, setOpeningSharedLink] = useState(false);
   const [sharingFolder, setSharingFolder] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    const shortCode = params.get("s");
-    const longToken = params.get("share");
-    if (!shortCode && !longToken) return;
+    const { shortCode, longToken, speakingCode, speakingToken } = readShareHashParams();
+    if (!shortCode && !longToken && !speakingCode && !speakingToken) return;
 
-    const sharedFolderPromise = shortCode
-      ? readFolderShareCode(shortCode)
-      : readFolderShareToken(longToken);
+    let cancelled = false;
+    const sharePromise = speakingCode
+      ? readSpeakingShareCode(speakingCode)
+      : speakingToken
+        ? readSpeakingShareToken(speakingToken)
+        : shortCode
+          ? readFolderShareCode(shortCode)
+          : readFolderShareToken(longToken);
 
-    sharedFolderPromise
+    sharePromise
       .then((share) => {
+        if (cancelled) return;
         window.history.replaceState(
           null,
           "",
           `${window.location.pathname}${window.location.search}`
         );
-        setSharedFolder(share);
-        setModal("shared-folder");
+        if (share.type === "speaking") {
+          setSharedSpeaking(share);
+          setModal("shared-speaking");
+        } else {
+          setSharedFolder(share);
+          setModal("shared-folder");
+        }
       })
       .catch((error) => {
-        console.error("Không thể mở link chia sẻ thư mục:", error);
+        if (cancelled) return;
+        console.error("Không thể mở link chia sẻ:", error);
         setNotice(error.message);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function shareCurrentFolder() {
@@ -56,15 +74,21 @@ export function useSharing({ library, toast, setNotice, setModal, setView }) {
     }
   }
 
-  async function openSharedFolderLink() {
+  // Nhận cả link thư mục từ vựng lẫn link đề tài luyện nói trong cùng một ô.
+  async function openSharedLink() {
     setOpeningSharedLink(true);
     try {
-      const share = await readFolderShareLink(sharedLinkDraft);
-      setSharedFolder(share);
+      const share = await readShareLink(sharedLinkDraft);
       setSharedLinkDraft("");
-      setModal("shared-folder");
+      if (share.type === "speaking") {
+        setSharedSpeaking(share);
+        setModal("shared-speaking");
+      } else {
+        setSharedFolder(share);
+        setModal("shared-folder");
+      }
     } catch (error) {
-      console.error("Không thể mở link chia sẻ thư mục:", error);
+      console.error("Không thể mở link chia sẻ:", error);
       toast(error.message);
     } finally {
       setOpeningSharedLink(false);
@@ -132,23 +156,46 @@ export function useSharing({ library, toast, setNotice, setModal, setView }) {
     toast(`Đã thêm thư mục "${name}" với ${newCards.length} thẻ vào thiết bị này.`);
   }
 
+  function importSharedSpeaking() {
+    if (!sharedSpeaking) return;
+    const added = speaking.addBoards(sharedSpeaking.topics);
+    setView("speaking");
+    setSharedSpeaking(null);
+    setModal("");
+    toast(
+      added
+        ? `Đã thêm ${added} đề tài luyện nói vào thiết bị này.`
+        : "Các đề tài này đã có trong danh sách luyện nói."
+    );
+  }
+
   function closeSharedFolder() {
     setSharedFolder(null);
+    setModal("");
+  }
+
+  function closeSharedSpeaking() {
+    setSharedSpeaking(null);
     setModal("");
   }
 
   return {
     shareUrl,
     sharedFolder,
+    sharedSpeaking,
     sharedLinkDraft,
     setSharedLinkDraft,
     openingSharedLink,
     sharingFolder,
     shareCurrentFolder,
-    openSharedFolderLink,
+    openSharedLink,
+    // Giữ tên cũ để các component cũ không bị lỗi nếu còn gọi tới.
+    openSharedFolderLink: openSharedLink,
     copyShareLink,
     sendShareLink,
     importSharedFolder,
     closeSharedFolder,
+    importSharedSpeaking,
+    closeSharedSpeaking,
   };
 }

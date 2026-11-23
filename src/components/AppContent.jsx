@@ -6,9 +6,10 @@ import QuestionPage from "./QuestionPage";
 import ResultPage from "./ResultPage";
 import SentencePage from "./SentencePage";
 import SharedLinkPage from "./SharedLinkPage";
+import SpeakingPage from "./SpeakingPage";
 import StudyPage from "./StudyPage";
 
-export default function AppContent({ view, library, study, importFlow, sharing, actions }) {
+export default function AppContent({ view, library, study, importFlow, sharing, speaking, actions }) {
   const currentCard = study.studyCards[study.studyIndex];
 
   return (
@@ -67,6 +68,19 @@ export default function AppContent({ view, library, study, importFlow, sharing, 
         />
       )}
 
+      {view === "speaking" && (
+        <SpeakingPage
+          boards={speaking.allBoards}
+          onAdd={actions.openSpeakingAdd}
+          onRemove={speaking.removeBoard}
+          onSpeak={library.speakGerman}
+          onSaveTopic={speaking.updateTopic}
+          onResetTopic={speaking.resetTopic}
+          hiddenCount={speaking.hidden.length}
+          onRestoreHidden={speaking.restoreHiddenTopics}
+        />
+      )}
+
       {view === "import" && (
         <ImportPage
           bulkText={importFlow.bulkText}
@@ -88,7 +102,7 @@ export default function AppContent({ view, library, study, importFlow, sharing, 
         <SharedLinkPage
           link={sharing.sharedLinkDraft}
           setLink={sharing.setSharedLinkDraft}
-          onOpenLink={sharing.openSharedFolderLink}
+          onOpenLink={sharing.openSharedLink}
           loading={sharing.openingSharedLink}
         />
       )}
