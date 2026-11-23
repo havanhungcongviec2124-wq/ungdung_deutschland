@@ -120,7 +120,6 @@ function SpeakingBoard({ board, onBack, onSpeak, actions }) {
               type="button"
               className="voice-button inline-voice"
               onClick={() => onSpeak(board.question)}
-              aria-label="Nghe câu hỏi"
             >
               <Volume2 size={15} /> 
             </button>
