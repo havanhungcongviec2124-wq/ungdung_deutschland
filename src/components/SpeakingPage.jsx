@@ -297,6 +297,7 @@ export default function SpeakingPage({
   onResetTopic,
   hiddenCount = 0,
   onRestoreHidden,
+  pageSize = SPEAKING_PAGE_SIZE,
   title = "Luyện nói",
   description = "49 đề tài Goethe A2 có sẵn bên dưới. Chọn đề bất kỳ, tự trả lời bằng tiếng Đức rồi để AI chấm điểm và hỏi tiếp.",
   levelBadge = "A2 · GOETHE SPRECHEN TEIL 2",
@@ -315,11 +316,11 @@ export default function SpeakingPage({
   const [keptId, setKeptId] = useState("");
   const [page, setPage] = useState(1);
   const activeBoard = boards.find((board) => board.id === activeId);
-  const totalPages = Math.max(1, Math.ceil(boards.length / SPEAKING_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(boards.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageBoards = boards.slice(
-    (currentPage - 1) * SPEAKING_PAGE_SIZE,
-    currentPage * SPEAKING_PAGE_SIZE
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   useEffect(() => {
@@ -331,7 +332,7 @@ export default function SpeakingPage({
     if (view !== "list" || !keptId) return;
     const index = boards.findIndex((board) => board.id === keptId);
     if (index < 0) return;
-    const targetPage = Math.floor(index / SPEAKING_PAGE_SIZE) + 1;
+    const targetPage = Math.floor(index / pageSize) + 1;
     if (currentPage !== targetPage) {
       setPage(targetPage);
       return;
@@ -339,7 +340,7 @@ export default function SpeakingPage({
     document
       .getElementById(`speaking-board-${keptId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [view, keptId, boards, currentPage]);
+  }, [view, keptId, boards, currentPage, pageSize]);
 
   function goToPage(number) {
     const target = Math.min(Math.max(number, 1), totalPages);
@@ -561,7 +562,7 @@ export default function SpeakingPage({
               <span className="speaking-board-label">
                 {board.library
                   ? board.label.toUpperCase()
-                  : `ĐỀ ${(currentPage - 1) * SPEAKING_PAGE_SIZE + index + 1}`}
+                  : `ĐỀ ${(currentPage - 1) * pageSize + index + 1}`}
                 {board.aiGenerated && (
                   <span className="speaking-ai-label"> (đề do AI tạo)</span>
                 )}

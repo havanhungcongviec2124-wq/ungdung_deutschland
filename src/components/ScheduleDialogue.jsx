@@ -143,7 +143,7 @@ export default function ScheduleDialogue({ board, onSpeak }) {
                     className="voice-button chat-voice"
                     onClick={() => onSpeak(item.text)}
                   >
-                    <Volume2 size={13} /> Nghe lại
+                    <Volume2 size={13} />
                   </button>
                 )}
               </div>

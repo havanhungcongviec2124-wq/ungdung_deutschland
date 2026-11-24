@@ -15,14 +15,18 @@ function renderHourlyTable(schedule) {
   for (let index = 0; index < slots.length; index += 1) {
     const slot = slots[index];
     const starting = blocksByStart.get(slot);
+    const covered = blocks.some((block) => {
+      const startIndex = indexOfSlot(slots, block.start);
+      const endIndex = indexOfSlot(slots, block.end);
+      return startIndex >= 0 && endIndex >= startIndex && index > startIndex && index <= endIndex;
+    });
+
     if (starting?.length) {
       starting.forEach((block, blockIndex) => {
         const endIndex = indexOfSlot(slots, block.end);
         const span =
           blockIndex === 0
-            ? endIndex > index
-              ? endIndex - index
-              : 1
+            ? Math.max(1, endIndex >= 0 ? endIndex - index + 1 : 1)
             : 1;
         rows.push(
           <tr key={`block-${slot}-${blockIndex}`}>
@@ -38,16 +42,11 @@ function renderHourlyTable(schedule) {
       });
       continue;
     }
-    const covered = blocks.some((block) => {
-      const startIndex = indexOfSlot(slots, block.start);
-      const endIndex = indexOfSlot(slots, block.end);
-      return startIndex >= 0 && endIndex > startIndex && index > startIndex && index < endIndex;
-    });
-    if (covered) continue;
+
     rows.push(
-      <tr key={`free-${slot}`}>
+      <tr key={`${covered ? "covered" : "free"}-${slot}`}>
         <td className="schedule-time">{slot}</td>
-        <td className="schedule-free">frei</td>
+        {!covered && <td className="schedule-free">frei</td>}
       </tr>
     );
   }

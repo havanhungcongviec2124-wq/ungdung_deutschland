@@ -103,7 +103,8 @@ export default function AppContent({
           hiddenCount={scheduleSpeaking.hidden.length}
           onRestoreHidden={scheduleSpeaking.restoreHiddenTopics}
           title="Thống nhất lịch trình"
-          description="5 đề tài trích từ các phiếu Findet einen Termin / Wann könnt ihr euch treffen? và lịch tuần. Đọc lịch, chọn thời gian phù hợp rồi viết câu trả lời tiếng Đức để AI chấm."
+          pageSize={12}
+          description="19 đề tài trích từ các phiếu Findet einen Termin / Wann könnt ihr euch treffen?, lịch tuần và lịch kỳ nghỉ. Đọc lịch, chọn thời gian phù hợp rồi viết câu trả lời tiếng Đức để AI chấm."
           levelBadge="A2 · TERMIN VEREINBAREN"
           conversation
           topicContext="Chủ đề bắt buộc: Termine vereinbaren / einen gemeinsamen Termin finden (Wann hast du Zeit? Uhrzeiten, Tagesplan, Wochenplan, Verabredungen). Câu hỏi phải là một cuộc hẹn hoặc thời gian biểu, không phải chủ đề tự do."
