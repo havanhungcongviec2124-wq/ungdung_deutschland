@@ -11,6 +11,28 @@ function topicPayload(topic) {
   };
 }
 
+// Tạo một đề nói mới: 1 câu hỏi tiếng Đức + đúng 4 gợi ý.
+export async function generateSpeakingTopic(excludeQuestions = [], context = "", mode = "") {
+  const result = await postAi("/api/speaking/generate-topic", {
+    mode: mode === "schedule" ? "schedule" : "",
+    context: String(context || "").trim().slice(0, 400),
+    nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    excludeQuestions: Array.isArray(excludeQuestions)
+      ? excludeQuestions.slice(0, 60).map((item) => String(item || "").trim()).filter(Boolean)
+      : [],
+  });
+
+  const question = String(result?.question || "").trim();
+  const hints = Array.isArray(result?.hints)
+    ? result.hints.map((hint) => String(hint || "").trim()).filter(Boolean).slice(0, 4)
+    : [];
+  if (!question || hints.length !== 4) {
+    throw new Error("AI chưa tạo đủ 1 câu hỏi và 4 gợi ý. Hãy bấm lại để thử đề khác.");
+  }
+  const caption = String(result?.caption || "").trim();
+  return { question, hints, ...(caption ? { caption } : {}) };
+}
+
 // Nộp câu trả lời đầu: AI chấm và tạo 1-6 câu hỏi phụ cùng lúc.
 export async function startSpeaking(topic, answer) {
   const value = String(answer || "").trim();

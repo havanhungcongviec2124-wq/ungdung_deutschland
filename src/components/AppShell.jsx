@@ -15,6 +15,7 @@ import {
 const pageTitles = {
   home: "Tổng quan",
   speaking: "Luyện nói",
+  "schedule-speaking": "Luyện nói · Thống nhất lịch trình",
   import: "Nhập hàng loạt",
   "shared-link": "Thêm bằng link chia sẻ",
   "import-preview": "Nhập hàng loạt",

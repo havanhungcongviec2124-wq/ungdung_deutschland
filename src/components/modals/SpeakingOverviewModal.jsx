@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Copy, Loader2, Pencil, RotateCcw, Share2, Trash2, X }
 import Modal from "../Modal";
 import ConfirmModal from "./ConfirmModal";
 import { createSpeakingShareUrl } from "../../lib/folderSharing";
+import { buildScheduleFromLines } from "../../lib/scheduleInput";
 
 export default function SpeakingOverviewModal({
   boards,
@@ -14,6 +15,7 @@ export default function SpeakingOverviewModal({
   onClose,
   inline = false,
   headerActions = null,
+  scheduleMode = false,
 }) {
   const allTopics = useMemo(() => {
     const seen = new Set();
@@ -27,7 +29,7 @@ export default function SpeakingOverviewModal({
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState(() => new Set(allTopics.map((topic) => topic.id)));
   const [editingId, setEditingId] = useState("");
-  const [draft, setDraft] = useState({ question: "", hints: "" });
+  const [draft, setDraft] = useState({ question: "", hints: "", caption: "" });
   const [shareUrl, setShareUrl] = useState("");
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
@@ -74,7 +76,11 @@ export default function SpeakingOverviewModal({
 
   function startEdit(topic) {
     setEditingId(topic.id);
-    setDraft({ question: topic.question, hints: (topic.hints || []).join("\n") });
+    setDraft({
+      question: topic.question,
+      hints: (topic.hints || []).join("\n"),
+      caption: topic.schedule?.caption || "",
+    });
     setError("");
   }
 
@@ -83,7 +89,16 @@ export default function SpeakingOverviewModal({
       setError("Hãy nhập câu hỏi tiếng Đức.");
       return;
     }
-    onSaveTopic?.(topic, { question: draft.question, hints: draft.hints });
+    if (scheduleMode) {
+      const schedule = buildScheduleFromLines(draft.hints, draft.caption);
+      if (!schedule) {
+        setError("Hãy nhập lịch dạng 08.00 – 09.00: joggen (mỗi hoạt động một dòng).");
+        return;
+      }
+      onSaveTopic?.(topic, { question: draft.question, hints: draft.hints, schedule });
+    } else {
+      onSaveTopic?.(topic, { question: draft.question, hints: draft.hints });
+    }
     setEditingId("");
     setError("");
   }
@@ -184,6 +199,7 @@ export default function SpeakingOverviewModal({
                   <span className="speaking-topic-text">
                     <strong>{topic.question}</strong>
                     <small>
+                      {topic.aiGenerated ? "(đề do AI tạo) · " : ""}
                       {topic.edited ? "Đã sửa · " : ""}
                       {(topic.hints || []).join(" · ")}
                     </small>
@@ -209,11 +225,18 @@ export default function SpeakingOverviewModal({
                       onChange={(event) => setDraft((current) => ({ ...current, question: event.target.value }))}
                       placeholder="Câu hỏi tiếng Đức"
                     />
+                    {scheduleMode && (
+                      <input
+                        value={draft.caption}
+                        onChange={(event) => setDraft((current) => ({ ...current, caption: event.target.value }))}
+                        placeholder="Tên lịch / ngày"
+                      />
+                    )}
                     <textarea
-                      rows={3}
+                      rows={scheduleMode ? 5 : 3}
                       value={draft.hints}
                       onChange={(event) => setDraft((current) => ({ ...current, hints: event.target.value }))}
-                      placeholder="Mỗi dòng một gợi ý"
+                      placeholder={scheduleMode ? "08.00 – 09.00: joggen" : "Mỗi dòng một gợi ý"}
                     />
                     <div className="speaking-editor-actions">
                       {topic.library && topic.edited && (

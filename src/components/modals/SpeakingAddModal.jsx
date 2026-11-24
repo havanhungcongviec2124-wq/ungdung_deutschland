@@ -1,13 +1,22 @@
 import { useRef, useState } from "react";
-import { Check, FileText, Loader2, Pencil, Plus, Upload } from "lucide-react";
+import { CalendarClock, Check, FileText, Loader2, Pencil, Plus, Upload } from "lucide-react";
 import Modal from "../Modal";
 import { parseTopicsFromFile } from "../../lib/speakingFileImport";
 import { topicKey } from "../../lib/speakingData";
+import { buildScheduleFromLines } from "../../lib/scheduleInput";
 
-export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
+export default function SpeakingAddModal({
+  boards,
+  onAddTopics,
+  onClose,
+  intro,
+  scheduleMode = false,
+}) {
   const [mode, setMode] = useState("custom");
   const [customQuestion, setCustomQuestion] = useState("");
+  const [customCaption, setCustomCaption] = useState("");
   const [customHints, setCustomHints] = useState("");
+  const [customError, setCustomError] = useState("");
   const [fileTopics, setFileTopics] = useState([]);
   const [selectedFileIndexes, setSelectedFileIndexes] = useState([]);
   const [fileLoading, setFileLoading] = useState(false);
@@ -16,16 +25,28 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
   const fileInputRef = useRef(null);
 
   const addedKeys = new Set(boards.map(topicKey));
-
-  function addCustom() {
-    const question = customQuestion.trim();
-    if (!question) return;
-    const hints = customHints
+  const parseHints = (value) =>
+    String(value || "")
       .split("\n")
       .map((line) => line.trim().replace(/^[-–]\s*/, ""))
       .filter(Boolean)
       .slice(0, 8);
-    onAddTopics([{ topicId: "custom", question, hints, custom: true }]);
+
+  function addCustom() {
+    const question = customQuestion.trim();
+    if (!question) return;
+    const hints = parseHints(customHints);
+    if (scheduleMode) {
+      const schedule = buildScheduleFromLines(hints.join("\n"), customCaption);
+      if (!schedule) {
+        setCustomError("Hãy nhập ít nhất một dòng lịch, ví dụ: 08.00 – 09.00: länger schlafen");
+        return;
+      }
+      onAddTopics([{ topicId: "custom", question, hints, custom: true, schedule }]);
+    } else {
+      if (!hints.length) return;
+      onAddTopics([{ topicId: "custom", question, hints, custom: true }]);
+    }
     onClose();
   }
 
@@ -36,7 +57,18 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
     setFileError("");
     try {
       const parsed = await parseTopicsFromFile(file);
-      const fresh = parsed.filter((topic) => !addedKeys.has(topicKey(topic)));
+      const fresh = parsed
+        .filter((topic) => !addedKeys.has(topicKey(topic)))
+        .map((topic) => {
+          if (!scheduleMode) return topic;
+          const lines = (topic.hints || []).join("\n");
+          const hints = parseHints(lines);
+          const schedule = buildScheduleFromLines(
+            lines,
+            topic.schedule?.caption || file.name.replace(/\.[^.]+$/, "")
+          );
+          return schedule ? { ...topic, hints, schedule } : topic;
+        });
       setFileTopics(fresh);
       setSelectedFileIndexes(fresh.map((_, index) => index));
       setEditing({});
@@ -56,7 +88,10 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
   }
 
   function topicValue(topic, index, field) {
-    return editing[index]?.[field] ?? (field === "hints" ? topic.hints.join("\n") : topic.question);
+    if (editing[index]?.[field] !== undefined) return editing[index][field];
+    if (field === "hints") return (topic.hints || []).join("\n");
+    if (field === "caption") return topic.schedule?.caption || "";
+    return topic.question;
   }
 
   function updateTopicValue(index, field, value) {
@@ -80,24 +115,32 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
       .map((index) => {
         const topic = fileTopics[index];
         const question = topicValue(topic, index, "question").trim();
-        const hints = topicValue(topic, index, "hints")
-          .split("\n")
-          .map((line) => line.trim().replace(/^[-–]\s*/, ""))
-          .filter(Boolean)
-          .slice(0, 8);
-        return { ...topic, question, hints };
+        const lines = topicValue(topic, index, "hints");
+        const hints = parseHints(lines);
+        if (!question) return null;
+        if (!scheduleMode) return { ...topic, question, hints };
+        const schedule = buildScheduleFromLines(lines, topicValue(topic, index, "caption"));
+        if (!schedule) return null;
+        return { ...topic, question, hints, schedule };
       })
-      .filter((topic) => topic.question);
-    if (!chosen.length) return;
+      .filter(Boolean);
+    if (!chosen.length) {
+      setFileError(
+        scheduleMode
+          ? "Có đề tài chưa đúng dạng lịch (HH.MM – HH.MM: hoạt động). Hãy sửa rồi thử lại."
+          : "Chưa có đề tài hợp lệ để thêm."
+      );
+      return;
+    }
     onAddTopics(chosen);
     onClose();
   }
 
   return (
-    <Modal title="Thêm đề tài luyện nói" onClose={onClose}>
+    <Modal title={scheduleMode ? "Thêm đề tài lịch trình" : "Thêm đề tài luyện nói"} onClose={onClose}>
       <p className="modal-hint">
-        49 chủ đề Goethe A2 đã có sẵn trong danh sách Luyện nói. Dùng hình này để thêm đề tài của
-        riêng bạn hoặc nhập từ tệp PDF/Word.
+        {intro ||
+          "49 chủ đề Goethe A2 đã có sẵn trong danh sách Luyện nói. Dùng hình này để thêm đề tài của riêng bạn hoặc nhập từ tệp PDF/Word."}
       </p>
 
       <div className="speaking-modal-tabs">
@@ -106,7 +149,7 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
           className={mode === "custom" ? "active" : ""}
           onClick={() => setMode("custom")}
         >
-          Tự nhập đề tài
+          {scheduleMode ? "Tự nhập lịch" : "Tự nhập đề tài"}
         </button>
         <button
           type="button"
@@ -123,21 +166,52 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
             Câu hỏi chính (tiếng Đức)
             <input
               value={customQuestion}
-              onChange={(event) => setCustomQuestion(event.target.value)}
-              placeholder="Was machen Sie gern am Sonntag?"
+              onChange={(event) => {
+                setCustomQuestion(event.target.value);
+                setCustomError("");
+              }}
+              placeholder={
+                scheduleMode
+                  ? "Wann könnt ihr euch treffen?"
+                  : "Was machen Sie gern am Sonntag?"
+              }
             />
           </label>
+          {scheduleMode && (
+            <label>
+              Tên lịch / ngày (không bắt buộc)
+              <input
+                value={customCaption}
+                onChange={(event) => setCustomCaption(event.target.value)}
+                placeholder="Freitag, 01.11."
+              />
+            </label>
+          )}
           <label>
-            Gợi ý (mỗi dòng một ý)
+            {scheduleMode ? "Lịch hoạt động (mỗi dòng một khung giờ)" : "Gợi ý (mỗi dòng một ý)"}
             <textarea
               value={customHints}
-              onChange={(event) => setCustomHints(event.target.value)}
-              placeholder={"Freunde treffen?\nHobbys?\nLange schlafen?"}
-              rows={4}
+              onChange={(event) => {
+                setCustomHints(event.target.value);
+                setCustomError("");
+              }}
+              placeholder={
+                scheduleMode
+                  ? "08.00 – 09.00: länger schlafen\n12.00 – 13.00: mit Mario skaten\n16.00 – 18.00: einkaufen gehen"
+                  : "Freunde treffen?\nHobbys?\nLange schlafen?"
+              }
+              rows={scheduleMode ? 5 : 4}
             />
           </label>
+          {scheduleMode && (
+            <p className="modal-hint">
+              <CalendarClock size={13} /> Mỗi dòng gồm giờ bắt đầu – giờ kết thúc và hoạt động. Bảng
+              lịch sẽ được tạo tự động; giờ trống hiện <strong>frei</strong>.
+            </p>
+          )}
+          {customError && <p className="form-error">{customError}</p>}
           <div className="speaking-modal-actions">
-            <span>Tối đa 8 gợi ý</span>
+            <span>{scheduleMode ? "Tối đa 8 hoạt động" : "Tối đa 8 gợi ý"}</span>
             <button
               type="button"
               className="btn-primary"
@@ -169,9 +243,19 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
             {fileLoading ? "Đang đọc tệp..." : "Chọn tệp PDF hoặc Word"}
           </button>
           <p className="modal-hint">
-            Hỗ trợ <strong>.pdf</strong>, <strong>.docx</strong> và <strong>.txt</strong>. Tệp được
-            đọc ngay trên thiết bị, không gửi lên máy chủ. Có thể bỏ chọn hoặc sửa từng đề tài
-            trước khi thêm.
+            {scheduleMode ? (
+              <>
+                Tệp cần có các dạng <strong>08.00 – 09.00: joggen</strong> hoặc{" "}
+                <strong>08.00: joggen</strong>. Hỗ trợ <strong>.pdf</strong>, <strong>.docx</strong>,{" "}
+                <strong>.txt</strong>; đọc ngay trên thiết bị. Có thể sửa từng đề trước khi thêm.
+              </>
+            ) : (
+              <>
+                Hỗ trợ <strong>.pdf</strong>, <strong>.docx</strong> và <strong>.txt</strong>. Tệp được
+                đọc ngay trên thiết bị, không gửi lên máy chủ. Có thể bỏ chọn hoặc sửa từng đề tài
+                trước khi thêm.
+              </>
+            )}
           </p>
           {fileError && <p className="form-error">{fileError}</p>}
 
@@ -220,7 +304,6 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
                             {topicValue(topic, index, "hints")
                               .split("\n")
                               .filter(Boolean)
-                              .map((line) => line.trim().replace(/^[-–]\s*/, ""))
                               .join(" · ")}
                           </small>
                         </span>
@@ -251,11 +334,22 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
                             }
                             placeholder="Câu hỏi tiếng Đức"
                           />
+                          {scheduleMode && (
+                            <input
+                              value={topicValue(topic, index, "caption")}
+                              onChange={(event) =>
+                                updateTopicValue(index, "caption", event.target.value)
+                              }
+                              placeholder="Tên lịch / ngày"
+                            />
+                          )}
                           <textarea
                             rows={3}
                             value={topicValue(topic, index, "hints")}
                             onChange={(event) => updateTopicValue(index, "hints", event.target.value)}
-                            placeholder="Mỗi dòng một gợi ý"
+                            placeholder={
+                              scheduleMode ? "08.00 – 09.00: joggen" : "Mỗi dòng một gợi ý"
+                            }
                           />
                         </div>
                       )}
@@ -271,7 +365,7 @@ export default function SpeakingAddModal({ boards, onAddTopics, onClose }) {
                   disabled={!selectedFileIndexes.length}
                   onClick={addFromFile}
                 >
-                  <Plus size={15} /> Thêm vào luyện nói
+                  <Plus size={15} /> {scheduleMode ? "Thêm vào lịch trình" : "Thêm vào luyện nói"}
                 </button>
               </div>
             </>

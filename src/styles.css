@@ -1815,7 +1815,107 @@ button { cursor: pointer; }
 .speaking-board li,
 .speaking-prompt li { font-size: 11px; line-height: 1.6; color: #777c91; }
 .speaking-board-cta { margin-top: 4px; font-size: 11px; font-weight: 700; color: #6557e9; }
+.speaking-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #8e93a5;
+}
+.speaking-pagination-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.speaking-pagination-actions .btn-ghost { padding: 7px 10px; font-size: 10px; }
+.speaking-pagination-actions .btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+.speaking-page-number {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #e9eaf1;
+  border-radius: 9px;
+  background: #fff;
+  color: #676c80;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.speaking-page-number:hover { border-color: #c9c1ff; background: #faf9ff; }
+.speaking-page-number.active { background: #6d5dfc; border-color: #6d5dfc; color: #fff; }
+
+/* Bảng lịch trình (thẻ đề và trang làm bài) */
+.schedule-table-wrap { margin: 10px 0 4px; border: 1px solid #e9eaf1; border-radius: 12px; overflow: hidden; background: #fff; }
+.schedule-table-wrap.compact { margin: 8px 0; border-radius: 9px; }
+.schedule-table-caption { padding: 7px 10px; background: #f6f5ff; font-size: 14px; font-weight: 800; color: #5b4ddb; letter-spacing: .02em; }
+.schedule-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.schedule-table th { text-align: left; padding: 8px 10px; background: #fafaff; color: #8e93a5; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #ececf3; }
+.schedule-table td { padding: 8px 10px; color: #4b5063; border-bottom: 1px solid #f1f1f6; vertical-align: top; line-height: 1.45; }
+.schedule-table tr:last-child td { border-bottom: 0; }
+.schedule-table:not(.hourly) td:first-child { font-weight: 700; color: #6557e9; white-space: nowrap; width: 1%; }
+.schedule-table.hourly td.schedule-time { font-weight: 700; color: #6557e9; white-space: nowrap; width: 96px; background: #fafaff; }
+.schedule-table.hourly td.schedule-activity { vertical-align: middle; }
+.schedule-block-range { display: block; margin-bottom: 2px; font-size: 13px; font-weight: 800; color: #5b4ddb; letter-spacing: .02em; }
+.schedule-block-label { display: block; font-weight: 600; }
+.schedule-table.hourly td.schedule-free { color: #b3b7c6; font-style: italic; }
+.compact .schedule-table { font-size: 16px; }
+.compact .schedule-table th { font-size: 13px; }
+.compact .schedule-table td, .compact .schedule-table th { padding: 6px 8px; }
+
+/* Hội thoại chốt lịch */
+.schedule-dialogue { margin-top: 14px; }
+.schedule-dialogue-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.schedule-dialogue-head h2 { margin: 0 0 4px; font-size: 18px; color: #292d3e; }
+.schedule-dialogue-head p { margin: 0; font-size: 16px; color: #777c90; line-height: 1.5; max-width: 620px; }
+.schedule-chat { margin-top: 12px; max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #ececf3; border-radius: 16px; background: #fafaff; }
+.chat-bubble { max-width: 88%; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid #e9eaf1; box-shadow: 0 2px 8px rgba(40, 40, 80, .04); }
+.chat-bubble.ai { align-self: flex-start; border-bottom-left-radius: 4px; }
+.chat-bubble.user { align-self: flex-end; background: #f0edff; border-color: #dcd5ff; border-bottom-right-radius: 4px; }
+.chat-who { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #9a9fb0; }
+.chat-bubble strong { display: block; font-size: 16px; line-height: 1.55; color: #32364a; }
+.chat-bubble-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.chat-translate-button { border: 0; background: transparent; padding: 4px 0; font-size: 16px; font-weight: 700; color: #6557e9; cursor: pointer; }
+.chat-translate-button:hover { color: #4b3fd0; text-decoration: underline; }
+.chat-vi-panel { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e2ee; }
+.chat-translation, .chat-explanation { display: block; margin-top: 6px; font-size: 16px; line-height: 1.55; color: #777c90; }
+.chat-explanation { color: #6a5bd8; }
+.chat-voice { font-size: 16px; }
+.chat-typing { align-self: flex-start; font-size: 16px; font-style: italic; color: #8e93a5; }
+.schedule-dialogue .speaking-form label { font-size: 16px; }
+.schedule-dialogue .speaking-form textarea { font-size: 16px; line-height: 1.55; }
+.schedule-dialogue .speaking-form-actions span { font-size: 16px; }
+.schedule-agreement { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border: 1px solid #bfe6cf; border-radius: 14px; background: #f1fbf5; color: #1f7a49; }
+.schedule-agreement strong { font-size: 16px; }
+.schedule-agreement p { margin: 2px 0 0; font-size: 16px; color: #2d6247; }
+.schedule-agreement button { margin-left: auto; }
+@media (max-width: 640px) {
+  .schedule-dialogue-head { flex-direction: column; }
+  .chat-bubble { max-width: 96%; }
+  .schedule-agreement { flex-wrap: wrap; }
+  .schedule-agreement button { margin-left: 0; }
+}
 .speaking-footnote { margin: 0; font-size: 10px; line-height: 1.6; color: #a0a4b4; }
+.speaking-generate-error { margin: -6px 0 0; }
+.speaking-ai-trigger { border-color: #dcd8ff; color: #5b4ee0; }
+.speaking-ai-trigger:hover:not(:disabled) { background: #f5f3ff; border-color: #c9c1ff; }
+.speaking-ai-trigger:disabled { opacity: .6; cursor: not-allowed; }
+.speaking-ai-label,
+.speaking-ai-inline { color: #6557e9; font-weight: 800; }
+.speaking-board.ai-kept { border-color: #6d5dfc; box-shadow: 0 0 0 3px #6d5dfc1f; }
+.speaking-ai-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid #dcd8ff;
+  border-radius: 13px;
+  background: #faf9ff;
+}
+.speaking-ai-save strong { font-size: 12px; color: #4c3fd6; }
+.speaking-ai-save p { margin: 4px 0 0; font-size: 11px; line-height: 1.6; color: #777c91; }
+.speaking-ai-save-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.speaking-ai-save-actions button { font-size: 11px; padding: 9px 13px; }
 .speaking-prompt {
   display: grid;
   justify-items: start;

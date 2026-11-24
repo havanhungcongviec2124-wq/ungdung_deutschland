@@ -214,6 +214,38 @@ function normalizeFolderShare(payload) {
   };
 }
 
+function copySpeakingSchedule(value) {
+  if (!value || typeof value !== "object") return undefined;
+  const columns = Array.isArray(value.columns)
+    ? value.columns.slice(0, 3).map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const rows = Array.isArray(value.rows)
+    ? value.rows
+        .slice(0, 10)
+        .map((row) => (Array.isArray(row) ? row.slice(0, 3).map((cell) => String(cell || "").trim()) : []))
+        .filter((row) => row.some(Boolean))
+    : [];
+  const slots = Array.isArray(value.slots)
+    ? value.slots.slice(0, 24).map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const blocks = Array.isArray(value.blocks)
+    ? value.blocks
+        .slice(0, 16)
+        .map((block) => ({
+          start: String(block?.start || "").trim(),
+          end: String(block?.end || "").trim(),
+          label: String(block?.label || "").trim(),
+        }))
+        .filter((block) => block.start && block.end && block.label)
+    : [];
+  const caption = String(value.caption || "").trim();
+  if (columns.length && slots.length && blocks.length) {
+    return { caption, columns, slots, blocks };
+  }
+  if (columns.length && rows.length) return { caption, columns, rows };
+  return undefined;
+}
+
 function normalizeSpeakingShare(payload) {
   if (
     payload?.version !== 2 ||
@@ -236,7 +268,16 @@ function normalizeSpeakingShare(payload) {
           .filter(Boolean)
           .slice(0, 8)
       : [];
-    return { topicId: "shared", question, hints, custom: true };
+    return {
+      topicId: "shared",
+      question,
+      hints,
+      custom: true,
+      aiGenerated: Boolean(topic?.aiGenerated),
+      ...(copySpeakingSchedule(topic?.schedule)
+        ? { schedule: copySpeakingSchedule(topic.schedule) }
+        : {}),
+    };
   });
 
   return { type: "speaking", topics };
@@ -314,6 +355,10 @@ export async function createSpeakingShareUrl(topics) {
     topics: topics.map((topic) => ({
       question: String(topic?.question || "").trim(),
       hints: Array.isArray(topic?.hints) ? topic.hints.slice(0, 8) : [],
+      aiGenerated: Boolean(topic?.aiGenerated),
+      ...(copySpeakingSchedule(topic?.schedule)
+        ? { schedule: copySpeakingSchedule(topic.schedule) }
+        : {}),
     })),
   };
   const token = await encodeSharePayload(payload);

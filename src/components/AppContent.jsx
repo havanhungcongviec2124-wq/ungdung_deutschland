@@ -9,7 +9,16 @@ import SharedLinkPage from "./SharedLinkPage";
 import SpeakingPage from "./SpeakingPage";
 import StudyPage from "./StudyPage";
 
-export default function AppContent({ view, library, study, importFlow, sharing, speaking, actions }) {
+export default function AppContent({
+  view,
+  library,
+  study,
+  importFlow,
+  sharing,
+  speaking,
+  scheduleSpeaking,
+  actions,
+}) {
   const currentCard = study.studyCards[study.studyIndex];
 
   return (
@@ -72,12 +81,33 @@ export default function AppContent({ view, library, study, importFlow, sharing, 
         <SpeakingPage
           boards={speaking.allBoards}
           onAdd={actions.openSpeakingAdd}
+          onSaveAiTopic={speaking.addAiTopic}
           onRemove={speaking.removeBoard}
           onSpeak={library.speakGerman}
           onSaveTopic={speaking.updateTopic}
           onResetTopic={speaking.resetTopic}
           hiddenCount={speaking.hidden.length}
           onRestoreHidden={speaking.restoreHiddenTopics}
+        />
+      )}
+
+      {view === "schedule-speaking" && (
+        <SpeakingPage
+          boards={scheduleSpeaking.allBoards}
+          onAdd={actions.openScheduleAdd}
+          onSaveAiTopic={scheduleSpeaking.addAiTopic}
+          onRemove={scheduleSpeaking.removeBoard}
+          onSpeak={library.speakGerman}
+          onSaveTopic={scheduleSpeaking.updateTopic}
+          onResetTopic={scheduleSpeaking.resetTopic}
+          hiddenCount={scheduleSpeaking.hidden.length}
+          onRestoreHidden={scheduleSpeaking.restoreHiddenTopics}
+          title="Thống nhất lịch trình"
+          description="5 đề tài trích từ các phiếu Findet einen Termin / Wann könnt ihr euch treffen? và lịch tuần. Đọc lịch, chọn thời gian phù hợp rồi viết câu trả lời tiếng Đức để AI chấm."
+          levelBadge="A2 · TERMIN VEREINBAREN"
+          conversation
+          topicContext="Chủ đề bắt buộc: Termine vereinbaren / einen gemeinsamen Termin finden (Wann hast du Zeit? Uhrzeiten, Tagesplan, Wochenplan, Verabredungen). Câu hỏi phải là một cuộc hẹn hoặc thời gian biểu, không phải chủ đề tự do."
+          footnote="Dữ liệu đề tài lấy từ bộ ảnh Aufgabenblatt A2. Câu trả lời được gửi tới dịch vụ AI để chấm và gợi ý câu hỏi tiếp theo."
         />
       )}
 

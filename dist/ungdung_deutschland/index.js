@@ -66,6 +66,15 @@ const SENTENCE_QUESTION_SCHEMA = {
   },
   required: ["question", "translation", "hint", "expectedAnswer"]
 };
+const SPEAKING_TOPIC_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    question: { type: "STRING" },
+    hints: { type: "ARRAY", items: { type: "STRING" } },
+    caption: { type: "STRING" }
+  },
+  required: ["question", "hints"]
+};
 const SPEAKING_START_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -87,7 +96,42 @@ const SPEAKING_START_SCHEMA = {
   },
   required: ["correct", "corrected", "explanation", "followUps"]
 };
+const SCHEDULE_CHAT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    message: { type: "STRING" },
+    translation: { type: "STRING" },
+    explanation: { type: "STRING" },
+    userTranslation: { type: "STRING" },
+    done: { type: "BOOLEAN" },
+    agreement: { type: "STRING" }
+  },
+  required: ["message", "translation", "explanation", "userTranslation", "done", "agreement"]
+};
 const SPEAKING_LEVEL = "A2.2";
+const SPEAKING_TOPIC_CATEGORIES = [
+  "Essen und Trinken: Frühstück, Lieblingsgericht, Restaurant, Lebensmittel einkaufen",
+  "Reisen und Urlaub: Bahn, Flughafen, Stadtbesichtigung, Reisevorbereitung",
+  "Arbeit und Beruf: Arbeitsplatz, Kollegen, Ausbildung, Berufswunsch",
+  "Familie: Bruder/Schwester, Großeltern, Kinder, Familienrituale (nicht am Wochenende)",
+  "Gesundheit und Sport: Arzt, Schlaf, Ernährung, Bewegung, Wohlbefinden",
+  "Wohnen und Haushalt: Zimmer, Miete, Nachbarn, Aufräumen, Küche",
+  "Technik im Alltag: Handy, Computer, Internet, soziale Medien, Fotoapparat",
+  "Schule und Lernen: Deutschunterricht, Kurse, Prüfung, Hausaufgaben, Bücher",
+  "Tiere: Haustiere, Tierpflege, Waldtiere, Zoo, Lieblingstier",
+  "Feste und Einladungen: Geburtstag, Feier, Geschenk, Einladung, Urlaubsplan",
+  "Kleidung und Shopping: Mode, Farben, Größen, Schuhe, Geschenk kaufen",
+  "Geld und Ausgaben: Taschengeld, Bank, Sparen, Preise, Bezahlen",
+  "Wetter und Jahreszeiten: Regen, Schnee, Temperatur, Sommer, Winter",
+  "Kultur und Freizeit ohne Wochenende: Kino, Theater, Musik, Ausstellung, Hobby",
+  "Stadt und Orientierung: Wegbeschreibung, Bus und Bahn, Straßen, Post, Markt"
+];
+function pickSpeakingTopicCategory() {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return SPEAKING_TOPIC_CATEGORIES[bytes[0] % SPEAKING_TOPIC_CATEGORIES.length];
+}
+const SPEAKING_WEEKEND_WORDS = /\b(?:wochenende|sonntag|samstag|freitagabend)\b/i;
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
@@ -590,6 +634,149 @@ function normalizeFollowUps(value) {
     hint: cleanText(item?.hint, 300)
   })).filter((item) => item.question);
 }
+function normalizeGeneratedHints(value) {
+  const raw = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+  const parts = [];
+  for (const item of raw) {
+    String(item || "").split(/\||\r?\n|•/).forEach((part) => {
+      const hint = cleanText(part, 140).replace(/^(?:[-–•]\s*|\d+[.)]\s+)/, "").trim();
+      if (hint) parts.push(/[?.!…]$/.test(hint) ? hint : `${hint}?`);
+    });
+  }
+  return [...new Set(parts)].slice(0, 4);
+}
+function containsVietnamese(value) {
+  return /[ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳẵặèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/.test(
+    String(value || "")
+  );
+}
+async function scheduleChat(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+  const question = cleanText(body?.question, 300);
+  if (!question) return json({ error: "Thiếu đề tài lịch trình." }, 400);
+  const rawSchedule = body?.schedule && typeof body.schedule === "object" ? body.schedule : {};
+  const schedule = {
+    caption: cleanText(rawSchedule.caption, 120),
+    columns: Array.isArray(rawSchedule.columns) ? rawSchedule.columns.slice(0, 3).map((item) => cleanText(item, 60)).filter(Boolean) : [],
+    rows: Array.isArray(rawSchedule.rows) ? rawSchedule.rows.slice(0, 10).map(
+      (row) => Array.isArray(row) ? row.slice(0, 3).map((cell) => cleanText(cell, 120)).filter(Boolean) : []
+    ).filter((row) => row.length) : [],
+    slots: Array.isArray(rawSchedule.slots) ? rawSchedule.slots.slice(0, 24).map((item) => cleanText(item, 20)).filter(Boolean) : [],
+    blocks: Array.isArray(rawSchedule.blocks) ? rawSchedule.blocks.slice(0, 16).map((block) => ({
+      start: cleanText(block?.start, 20),
+      end: cleanText(block?.end, 20),
+      label: cleanText(block?.label, 160)
+    })).filter((block) => block.start && block.end && block.label) : []
+  };
+  const history = Array.isArray(body?.history) ? body.history.slice(-12).map((item) => ({
+    role: item?.role === "user" ? "user" : "ai",
+    text: cleanText(item?.text, 400)
+  })).filter((item) => item.text) : [];
+  const opener = body?.opener === "user" ? "user" : "ai";
+  if (!await allowAiRequest(request, env)) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+  const transcript = history.map(
+    (item, index2) => `${index2 + 1}. ${item.role === "user" ? "Người học" : "Bạn cùng lớp (AI)"}: ${item.text}`
+  ).join("\n") || "(chưa có lượt hội thoại nào)";
+  const instruction = `Bạn đóng vai một bạn cùng lớp người Đức, đang luyện A2 với một học sinh Việt Nam. Nhiệm vụ của hai người: ${question}. Lịch bận của bạn (các khung giờ/ngày bạn KHÔNG rảnh): ${schedule.blocks.length ? schedule.blocks.map((block) => `${block.start}-${block.end}: ${block.label}`).join("; ") : JSON.stringify(schedule.rows)}. Không được đề xuất những khung giờ đã có trong lịch bận này. Hội thoại hiện tại:
+${transcript}
+` + (history.length === 0 ? opener === "ai" ? "Chưa ai nói. Bạn hãy mở lời trước bằng tiếng Đức: chào nhau và hỏi khi nào học sinh rảnh, hoặc đề xuất một khung giờ còn trống. explanation để trống. done=false.\n" : "Học sinh sẽ mở lời trước. Hãy trả lời ngắn bằng tiếng Đức như thể bạn vừa được hỏi (MESSAGE và TRANSLATION vẫn phải có; explanation để trống; done=false).\n" : "Hãy phản hồi câu cuối của học sinh bằng tiếng Đức A2 tự nhiên, 1-2 câu. Nếu học sinh nêu một thời điểm cụ thể và thời điểm đó KHÔNG trùng lịch bận của bạn, hãy chấp nhận và chốt: đặt done=true và agreement là câu xác nhận tiếng Đức với thời điểm đó; message cũng chính là câu chốt. Nếu thời điểm đó trùng lịch bận, từ chối nhẹ nhàng rồi đề xuất một khung giờ khác còn trống, done=false. Nếu câu của học sinh chưa rõ thời điểm, hãy hỏi lại bằng Wann / Um wie viel Uhr / Passt ...?, done=false. explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của học sinh (đúng sai, cách nói tự nhiên hơn). Nếu đã quá 8 lượt, hãy cố chốt lịch ở lượt này.\n") + `QUAN TRỌNG: MESSAGE và AGREEMENT chỉ được chứa tiếng Đức, TUYỆT ĐỐI không được tiếng Việt. message LUÔN là tiếng Đức và là nội dung chính; translation là bản dịch tiếng Việt của message; userTranslation BẮT BUỘC là bản dịch tiếng Việt của câu cuối cùng của người học khi history không rỗng (không được để trống, không được lặp lại explanation); chỉ để trống ở lượt mở lời của AI; explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của người học. Không thêm markdown, không thêm lời dư ngoài JSON.`;
+  const payload = {
+    level: SPEAKING_LEVEL,
+    word: "Termine vereinbaren",
+    note: question
+  };
+  let result = await callAi(env, instruction, payload, void 0, SCHEDULE_CHAT_SCHEMA, 512);
+  if (result instanceof Response) return result;
+  let message = cleanText(result.message, 400);
+  if (containsVietnamese(message)) {
+    const retryInstruction = instruction + " Lần trước bạn trả MESSAGE bằng tiếng Việt, sai yêu cầu. Hãy trả lại toàn bộ JSON với MESSAGE và AGREEMENT bằng TIẾNG ĐỨC, giữ translation/explanation bằng tiếng Việt.";
+    result = await callAi(env, retryInstruction, payload, void 0, SCHEDULE_CHAT_SCHEMA, 512);
+    if (result instanceof Response) return result;
+    message = cleanText(result.message, 400);
+  }
+  if (!message || containsVietnamese(message)) {
+    message = history.length ? "Entschuldigung, kannst du das bitte noch einmal sagen?" : "Hallo! Wann hast du Zeit?";
+  }
+  return json({
+    message,
+    translation: cleanText(result.translation, 400),
+    explanation: cleanText(result.explanation, 500),
+    userTranslation: cleanText(result.userTranslation, 400),
+    done: Boolean(result.done),
+    agreement: (() => {
+      const value = cleanText(result.agreement, 300);
+      return value && !containsVietnamese(value) ? value : message;
+    })()
+  });
+}
+function normalizeGeneratedTopic(result, scheduleMode = false) {
+  const rawQuestion = cleanText(result?.question, 300).replace(/^(?:[-–•]|\d+[.)])\s*/, "").trim();
+  const hints = normalizeGeneratedHints(result?.hints);
+  if (!rawQuestion || hints.length !== 4) return null;
+  const question = /[?.!]$/.test(rawQuestion) ? rawQuestion : `${rawQuestion}?`;
+  if (scheduleMode) {
+    const timeRange = /^\d{1,2}[.:]\d{2}\s*(?:-|–|—|bis)\s*\d{1,2}[.:]\d{2}\s*[:\-–]\s*.+$/i;
+    if (!hints.every((hint) => timeRange.test(hint))) return null;
+    const caption = cleanText(result?.caption, 120);
+    return { question, hints, ...caption ? { caption } : {} };
+  }
+  if (SPEAKING_WEEKEND_WORDS.test(question) || hints.some((hint) => SPEAKING_WEEKEND_WORDS.test(hint))) {
+    return null;
+  }
+  return { question, hints };
+}
+async function generateSpeakingTopic(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+  const nonce = cleanText(body?.nonce, 80) || `${Date.now()}-${crypto.randomUUID?.() || "ai"}`;
+  const context = cleanText(body?.context, 400);
+  const scheduleMode = body?.mode === "schedule";
+  const excludeQuestions = Array.isArray(body?.excludeQuestions) ? body.excludeQuestions.slice(0, 60).map((item) => cleanText(item, 200)).filter(Boolean) : [];
+  if (!await allowAiRequest(request, env)) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+  const firstCategory = pickSpeakingTopicCategory();
+  let secondCategory = pickSpeakingTopicCategory();
+  while (secondCategory === firstCategory) secondCategory = pickSpeakingTopicCategory();
+  const categories = context ? scheduleMode ? [context, `${context} Hãy chọn một ngày và các hoạt động khác hẳn lần trước.`] : [context] : [firstCategory, secondCategory];
+  const card = {
+    level: SPEAKING_LEVEL,
+    word: "Goethe-Zertifikat A2 Sprechen Teil 2",
+    note: "Tạo đề nói mới, không chấm điểm."
+  };
+  let topic = null;
+  let lastResponse = null;
+  for (const [attempt, category] of categories.entries()) {
+    const seed = `${nonce}-${attempt}-${category.slice(0, 32)}`;
+    const instruction = `Tạo MỘT đề nói mới bằng tiếng Đức cho Goethe-Zertifikat A2 Sprechen Teil 2. Trình độ cố định ${SPEAKING_LEVEL}. ${levelGuidance(SPEAKING_LEVEL)} ` + (context ? `YÊU CẦU RIÊNG của khu vực này (bắt buộc tuân theo): ${category}. ` : `Chủ đề BẮT BUỘC cho lần này là: ${category}. `) + (scheduleMode ? "question là đúng một câu hỏi tiếng Đức về việc tìm thời gian gặp nhau / thống nhất lịch, dùng du hoặc Sie nhưng nhất quán. caption là tên lịch ngắn bằng tiếng Đức, ví dụ 'Freitag, 01.11.' hoặc 'Wochenplan'. hints là đúng 4 dòng, MỖI DÒNG đúng MẪU 'HH.MM – HH.MM: Aktivität?'. Ví dụ: '08.00 – 09.00: länger schlafen?' | '12.00 – 13.00: mit Mario skaten?' | '16.00 – 18.00: einkaufen gehen?' | '19.00 – 20.00: E-Mail an Luise schreiben?'. Giờ kết thúc phải SAU giờ bắt đầu, các khung giờ KHÔNG chồng chéo, được phép dùng tên ngày trong tuần. Không dịch tiếng Việt, không giải thích, không thêm số thứ tự hay dấu gạch đầu dòng. " : "question là đúng một câu hỏi tiếng Đức tự nhiên, ngắn gọn, dùng Sie hoặc du nhưng nhất quán trong cùng đề. TUYỆT ĐỐI không dùng các từ Wochenende, Sonntag, Samstag, Freitagabend trong câu hỏi lẫn các gợi ý. Đừng lặp lại mẫu 'Was machen Sie ...?'; hãy đa dạng dạng hỏi với Wer, Wo, Wann, Warum, Wie, Welche, Wohin, Wem hoặc Mit wem. hints là đúng 4 gợi ý ngắn bằng tiếng Đức, mỗi gợi ý là một cụm từ hoặc ý tưởng có dấu hỏi ở cuối, giống mẫu: Freunde treffen? | Hobbys? | Lange schlafen? | Fernsehen?. Bốn gợi ý phải khác nhau, xoay quanh đúng câu hỏi, đủ để học sinh chọn ý trả lời. Không thêm số thứ tự, không thêm dấu gạch đầu dòng vào nội dung gợi ý, không dịch tiếng Việt, không giải thích. ") + "Danh sách câu hỏi trong dữ liệu gửi kèm CHỈ để tránh trùng, không được lấy làm cảm hứng hay sao chép cấu trúc. Mã ngẫu nhiên để tạo đề khác đi: " + seed + ". Trả đúng schema JSON, không markdown.";
+    const result = await callAi(
+      env,
+      instruction,
+      card,
+      excludeQuestions.join("\n"),
+      SPEAKING_TOPIC_SCHEMA,
+      512
+    );
+    if (result instanceof Response) {
+      lastResponse = result;
+      if (result.status === 502 || result.status === 503) continue;
+      return result;
+    }
+    topic = normalizeGeneratedTopic(result, scheduleMode);
+    if (topic) break;
+  }
+  if (!topic) {
+    if (lastResponse instanceof Response) return lastResponse;
+    return json(
+      { error: "AI chưa tạo được đề mới. Hãy bấm lại để thử chủ đề khác." },
+      502
+    );
+  }
+  return json(topic, 200, { "x-ai-cache": "bypass" });
+}
 async function speakingStart(request, env) {
   const body = await parseAiRequest(request);
   if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
@@ -671,8 +858,10 @@ const index = {
       "/api/sentence/prompt": sentencePrompt,
       "/api/sentence/question": sentenceQuestion,
       "/api/sentence/check": sentenceCheck,
+      "/api/speaking/generate-topic": generateSpeakingTopic,
       "/api/speaking/start": speakingStart,
-      "/api/speaking/check": speakingCheck
+      "/api/speaking/check": speakingCheck,
+      "/api/schedule/chat": scheduleChat
     };
     if (aiRoutes[url.pathname]) {
       if (request.method === "OPTIONS") return corsPreflight();

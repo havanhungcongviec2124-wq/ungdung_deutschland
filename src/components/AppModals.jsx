@@ -11,7 +11,15 @@ import SpeakingAddModal from "./modals/SpeakingAddModal";
 import SpeakingOverviewModal from "./modals/SpeakingOverviewModal";
 import StudySetupModal from "./modals/StudySetupModal";
 
-export default function AppModals({ modal, setModal, library, study, sharing, speaking }) {
+export default function AppModals({
+  modal,
+  setModal,
+  library,
+  study,
+  sharing,
+  speaking,
+  scheduleSpeaking,
+}) {
   const close = () => setModal("");
 
   return (
@@ -135,6 +143,29 @@ export default function AppModals({ modal, setModal, library, study, sharing, sp
           onSaveTopic={speaking.updateTopic}
           onResetTopic={speaking.resetTopic}
           onClose={close}
+        />
+      )}
+
+      {modal === "schedule-speaking-add" && (
+        <SpeakingAddModal
+          boards={scheduleSpeaking.allBoards}
+          onAddTopics={scheduleSpeaking.addBoards}
+          onClose={close}
+          intro="5 đề tài lịch trình đã có sẵn. Nhập từng hoạt động với khung giờ (08.00 – 09.00: joggen) để bảng lịch và hội thoại chốt lịch dùng chung, hoặc nhập từ PDF/Word/TXT."
+          scheduleMode
+        />
+      )}
+
+      {modal === "schedule-speaking-overview" && (
+        <SpeakingOverviewModal
+          boards={scheduleSpeaking.allBoards}
+          onSaveTopic={scheduleSpeaking.updateTopic}
+          onResetTopic={scheduleSpeaking.resetTopic}
+          onRemoveTopic={scheduleSpeaking.removeBoard}
+          hiddenCount={scheduleSpeaking.hidden.length}
+          onRestoreHidden={scheduleSpeaking.restoreHiddenTopics}
+          onClose={close}
+          scheduleMode
         />
       )}
 
