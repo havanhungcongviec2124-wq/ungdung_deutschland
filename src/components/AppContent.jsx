@@ -166,6 +166,8 @@ export default function AppContent({
               level={study.sentenceLevel}
               onResult={study.recordStudyAnswer}
               onNext={study.nextStudyCard}
+              onPrev={study.prevStudyCard}
+              onOther={study.otherStudyCard}
               onSpeak={library.speakGerman}
               onExit={actions.closeStudy}
             />
@@ -177,6 +179,8 @@ export default function AppContent({
               level={study.sentenceLevel}
               onResult={study.recordStudyAnswer}
               onNext={study.nextStudyCard}
+              onPrev={study.prevStudyCard}
+              onOther={study.otherStudyCard}
               onSpeak={library.speakGerman}
               onExit={actions.closeStudy}
             />
@@ -193,6 +197,8 @@ export default function AppContent({
               onAnswer={study.answerStudy}
               onChooseAnswer={study.chooseQuizAnswer}
               onContinue={study.nextStudyCard}
+              onPrev={study.prevStudyCard}
+              onOther={study.otherStudyCard}
               onSpeak={library.speakGerman}
               onExit={actions.closeStudy}
             />

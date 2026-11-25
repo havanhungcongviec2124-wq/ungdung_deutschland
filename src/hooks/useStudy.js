@@ -158,6 +158,25 @@ export function useStudy({ library, toast, setModal, setView }) {
     setSelectedAnswer(null);
   }
 
+  // Điều hướng tự do giữa các câu đang ôn, không phụ thuộc vào việc đã trả lời.
+  // Ở câu cuối, "sang câu khác" quay lại câu đầu thay vì kết thúc bài.
+  function goToStudyCard(targetIndex) {
+    if (!studyCards.length) return;
+    const next = ((targetIndex % studyCards.length) + studyCards.length) % studyCards.length;
+    if (next === studyIndex) return;
+    setStudyIndex(next);
+    setFlipped(false);
+    setSelectedAnswer(null);
+  }
+
+  function prevStudyCard() {
+    goToStudyCard(studyIndex - 1);
+  }
+
+  function otherStudyCard() {
+    goToStudyCard(studyIndex + 1);
+  }
+
   function answerStudy(known) {
     recordStudyAnswer(known);
     nextStudyCard();
@@ -204,6 +223,8 @@ export function useStudy({ library, toast, setModal, setView }) {
     startQuestionStudy,
     recordStudyAnswer,
     nextStudyCard,
+    prevStudyCard,
+    otherStudyCard,
     answerStudy,
     chooseQuizAnswer,
     retryStudy,

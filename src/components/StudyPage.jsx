@@ -7,6 +7,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { normalizeQuizAnswer, quizAnswer } from "../lib/appData";
+import StudyCardNav from "./StudyCardNav";
 
 export default function StudyPage({
   card,
@@ -20,6 +21,8 @@ export default function StudyPage({
   onAnswer,
   onChooseAnswer,
   onContinue,
+  onPrev,
+  onOther,
   onSpeak,
   onExit,
 }) {
@@ -46,6 +49,15 @@ export default function StudyPage({
           {index + 1} / {total}
         </strong>
       </div>
+
+      {isQuiz && (
+        <StudyCardNav
+          onPrev={onPrev}
+          onNext={onOther}
+          prevDisabled={index === 0}
+          nextDisabled={total <= 1}
+        />
+      )}
 
       <div className="progress-track">
         <div style={{ width: `${(index / total) * 100}%` }} />

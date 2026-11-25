@@ -16,6 +16,7 @@ import {
   normalizeAiLevel,
   requestQuestionPrompt,
 } from "../lib/aiSentence";
+import StudyCardNav from "./StudyCardNav";
 
 function normalizeAnswer(value) {
   return String(value || "")
@@ -32,6 +33,8 @@ export default function QuestionPage({
   level,
   onResult,
   onNext,
+  onPrev,
+  onOther,
   onSpeak,
   onExit,
 }) {
@@ -149,6 +152,13 @@ export default function QuestionPage({
           {index + 1} / {total}
         </strong>
       </div>
+
+      <StudyCardNav
+        onPrev={onPrev}
+        onNext={onOther}
+        prevDisabled={index === 0}
+        nextDisabled={total <= 1}
+      />
 
       <div className="progress-track">
         <div style={{ width: `${(index / total) * 100}%` }} />

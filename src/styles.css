@@ -1133,6 +1133,14 @@ button { cursor: pointer; }
   font-weight: 800;
 }
 .study-header strong { color: #5b6075; font-size: 12px; letter-spacing: 0; }
+.study-card-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.study-card-nav button { padding: 8px 12px; font-size: 11px; }
+.study-card-nav button:disabled { opacity: .45; cursor: not-allowed; }
 .progress-track {
   height: 5px;
   background: #e9eaf2;
@@ -2315,6 +2323,8 @@ button { cursor: pointer; }
 
   /* Study */
   .study-screen { margin: 0; }
+  .study-card-nav { flex-wrap: wrap; gap: 8px; }
+  .study-card-nav button { flex: 1 1 140px; }
   .progress-track { margin: 15px 0 35px; }
   .flip-card { height: 280px; }
   .flip-front strong,

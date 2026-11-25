@@ -14,6 +14,7 @@ import {
   normalizeAiLevel,
   requestSentencePrompt,
 } from "../lib/aiSentence";
+import StudyCardNav from "./StudyCardNav";
 
 function normalizeSentence(value) {
   return String(value || "")
@@ -30,6 +31,8 @@ export default function SentencePage({
   level,
   onResult,
   onNext,
+  onPrev,
+  onOther,
   onExit,
   onSpeak,
 }) {
@@ -152,6 +155,13 @@ export default function SentencePage({
           {index + 1} / {total}
         </strong>
       </div>
+
+      <StudyCardNav
+        onPrev={onPrev}
+        onNext={onOther}
+        prevDisabled={index === 0}
+        nextDisabled={total <= 1}
+      />
 
       <div className="progress-track">
         <div style={{ width: `${(index / total) * 100}%` }} />
