@@ -30,7 +30,8 @@ export function parseScheduleLines(text) {
     const startHour = hourToken(range?.[1] ?? single?.[1]);
     if (startHour === null) continue;
     const endHour = range ? hourToken(range[2]) : startHour + 1;
-    if (endHour === null || endHour <= startHour || endHour > 24) continue;
+    // Cho phép khung một giờ (21.00 – 21.00) như trong Aufgabenblatt B.
+    if (endHour === null || endHour < startHour || endHour > 24) continue;
     const label = String((range?.[3] ?? single?.[2]) || "")
       .replace(/[?？]+$/, "")
       .trim();
@@ -73,5 +74,31 @@ export function withScheduleFromHints(topic, caption = "Terminplan") {
     ...topic,
     hints: parsed.hints,
     schedule: buildScheduleFromLines(topic.hints.join("\n"), caption),
+  };
+}
+
+// Đề A2 Teil 3 gồm hai phiếu riêng. AI trả về sheets[side].hints; client dựng
+// bảng giờ cho từng phiếu rồi ẩn nội dung đó khỏi thẻ đề.
+export function withTwoSheetsFromGenerated(topic) {
+  if (!topic?.sheets || typeof topic.sheets !== "object") return topic;
+  const sheets = {};
+  for (const side of ["A", "B"]) {
+    const raw = topic.sheets[side];
+    const lines = Array.isArray(raw?.hints) ? raw.hints.join("\n") : "";
+    const schedule = buildScheduleFromLines(
+      lines,
+      raw?.caption || `Freitag, 01.11. · Aufgabenblatt ${side}`
+    );
+    if (!schedule) return topic;
+    sheets[side] = schedule;
+  }
+  return {
+    ...topic,
+    hints: [
+      "Jeder Kandidat bekommt eine eigene Aufgabe.",
+      "Ihr sprecht auf Deutsch und findet einen gemeinsamen Termin.",
+      "Am Ende sagt eine Person den Prüfern die Vereinbarung.",
+    ],
+    sheets,
   };
 }

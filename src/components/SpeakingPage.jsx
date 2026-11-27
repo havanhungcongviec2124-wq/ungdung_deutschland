@@ -24,7 +24,7 @@ import {
 } from "../lib/aiSpeaking";
 import ScheduleDialogue from "./ScheduleDialogue";
 import ScheduleTable from "./ScheduleTable";
-import { withScheduleFromHints } from "../lib/scheduleInput";
+import { withTwoSheetsFromGenerated } from "../lib/scheduleInput";
 import SpeakingOverviewModal from "./modals/SpeakingOverviewModal";
 import ConfirmModal from "./modals/ConfirmModal";
 
@@ -155,7 +155,7 @@ function SpeakingBoard({
             )}
           </span>
           <strong>{board.question}</strong>
-          {board.schedule ? (
+          {!conversation && board.schedule ? (
             <ScheduleTable schedule={board.schedule} />
           ) : (
             <ul>
@@ -398,11 +398,9 @@ export default function SpeakingPage({
         topicContext,
         conversation ? "schedule" : ""
       );
-      const topic = conversation
-        ? withScheduleFromHints(generated, generated.caption || "Terminplan")
-        : generated;
-      if (conversation && !topic.schedule) {
-        throw new Error("AI chưa tạo được lịch đúng khung giờ. Hãy bấm lại để thử đề khác.");
+      const topic = conversation ? withTwoSheetsFromGenerated(generated) : generated;
+      if (conversation && (!topic.sheets?.A || !topic.sheets?.B)) {
+        throw new Error("AI chưa tạo được đủ phiếu A và B. Hãy bấm lại để thử đề khác.");
       }
       setAiDraft({
         ...topic,

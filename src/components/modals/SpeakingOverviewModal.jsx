@@ -5,6 +5,20 @@ import ConfirmModal from "./ConfirmModal";
 import { createSpeakingShareUrl } from "../../lib/folderSharing";
 import { buildScheduleFromLines } from "../../lib/scheduleInput";
 
+const SHEET_HINTS = [
+  "Jeder Kandidat bekommt eine eigene Aufgabe.",
+  "Ihr sprecht auf Deutsch und findet einen gemeinsamen Termin.",
+  "Am Ende sagt eine Person den Prüfern die Vereinbarung.",
+];
+
+function scheduleLines(sheet) {
+  if (!sheet) return "";
+  if (Array.isArray(sheet.blocks) && sheet.blocks.length) {
+    return sheet.blocks.map((block) => `${block.start} – ${block.end}: ${block.label}`).join("\n");
+  }
+  return (sheet.rows || []).map((row) => row.join(" – ")).join("\n");
+}
+
 export default function SpeakingOverviewModal({
   boards,
   onSaveTopic,
@@ -31,7 +45,15 @@ export default function SpeakingOverviewModal({
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState(() => new Set(allTopics.map((topic) => topic.id)));
   const [editingId, setEditingId] = useState("");
-  const [draft, setDraft] = useState({ question: "", hints: "", caption: "" });
+  const [draft, setDraft] = useState({
+    question: "",
+    hints: "",
+    caption: "",
+    sheets: {
+      A: { caption: "", hints: "" },
+      B: { caption: "", hints: "" },
+    },
+  });
   const [shareUrl, setShareUrl] = useState("");
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
@@ -82,6 +104,16 @@ export default function SpeakingOverviewModal({
       question: topic.question,
       hints: (topic.hints || []).join("\n"),
       caption: topic.schedule?.caption || "",
+      sheets: {
+        A: {
+          caption: topic.sheets?.A?.caption || "",
+          hints: scheduleLines(topic.sheets?.A),
+        },
+        B: {
+          caption: topic.sheets?.B?.caption || "",
+          hints: scheduleLines(topic.sheets?.B),
+        },
+      },
     });
     setError("");
   }
@@ -92,12 +124,17 @@ export default function SpeakingOverviewModal({
       return;
     }
     if (scheduleMode) {
-      const schedule = buildScheduleFromLines(draft.hints, draft.caption);
-      if (!schedule) {
-        setError("Hãy nhập lịch dạng 08.00 – 09.00: joggen (mỗi hoạt động một dòng).");
+      const a = buildScheduleFromLines(draft.sheets.A.hints, draft.sheets.A.caption);
+      const b = buildScheduleFromLines(draft.sheets.B.hints, draft.sheets.B.caption);
+      if (!a || !b) {
+        setError("Hãy nhập lịch hợp lệ cho cả hai phiếu A và B.");
         return;
       }
-      onSaveTopic?.(topic, { question: draft.question, hints: draft.hints, schedule });
+      onSaveTopic?.(topic, {
+        question: draft.question,
+        hints: SHEET_HINTS,
+        sheets: { A: a, B: b },
+      });
     } else {
       onSaveTopic?.(topic, { question: draft.question, hints: draft.hints });
     }
@@ -152,7 +189,9 @@ export default function SpeakingOverviewModal({
         <p className="modal-hint">
           {writingMode
             ? `Tất cả ${allTopics.length} đề viết SMS/E-Mail từ bộ NOI VIET A2 và các đề bạn tự thêm được gộp tại đây (đã bỏ trùng). Bấm biểu tượng bút chì để sửa đề.`
-            : `Tất cả ${allTopics.length} đề tài từ 49 chủ đề Goethe A2 và các đề tài bạn đã thêm được gộp
+            : scheduleMode
+              ? `Tất cả ${allTopics.length} đề lịch trình A/B, gồm đề mẫu và các đề bạn tự thêm. Bấm biểu tượng bút chì để sửa cả hai phiếu.`
+              : `Tất cả ${allTopics.length} đề tài từ 49 chủ đề Goethe A2 và các đề tài bạn đã thêm được gộp
           tại đây (đã bỏ trùng). Bấm biểu tượng bút chì để sửa đề, sau đó chọn đề và tạo link chia
           sẻ.`}
         </p>
@@ -232,19 +271,42 @@ export default function SpeakingOverviewModal({
                       onChange={(event) => setDraft((current) => ({ ...current, question: event.target.value }))}
                       placeholder="Câu hỏi tiếng Đức"
                     />
-                    {scheduleMode && (
-                      <input
-                        value={draft.caption}
-                        onChange={(event) => setDraft((current) => ({ ...current, caption: event.target.value }))}
-                        placeholder="Tên lịch / ngày"
-                      />
-                    )}
-                    <textarea
-                      rows={scheduleMode ? 5 : 3}
-                      value={draft.hints}
-                      onChange={(event) => setDraft((current) => ({ ...current, hints: event.target.value }))}
-                      placeholder={scheduleMode ? "08.00 – 09.00: joggen" : "Mỗi dòng một gợi ý"}
-                    />
+                    {(scheduleMode ? ["A", "B"] : [""]).map((side) => (
+                      <div className="speaking-sheet-editor" key={side || "hints"}>
+                        {scheduleMode && <h3>Phiếu {side}</h3>}
+                        {scheduleMode && (
+                          <input
+                            value={draft.sheets[side].caption}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                sheets: {
+                                  ...current.sheets,
+                                  [side]: { ...current.sheets[side], caption: event.target.value },
+                                },
+                              }))
+                            }
+                            placeholder="Tên lịch / ngày"
+                          />
+                        )}
+                        <textarea
+                          rows={3}
+                          value={scheduleMode ? draft.sheets[side].hints : draft.hints}
+                          onChange={(event) =>
+                            scheduleMode
+                              ? setDraft((current) => ({
+                                  ...current,
+                                  sheets: {
+                                    ...current.sheets,
+                                    [side]: { ...current.sheets[side], hints: event.target.value },
+                                  },
+                                }))
+                              : setDraft((current) => ({ ...current, hints: event.target.value }))
+                          }
+                          placeholder={scheduleMode ? "08.00 – 09.00: joggen" : "Mỗi dòng một gợi ý"}
+                        />
+                      </div>
+                    ))}
                     <div className="speaking-editor-actions">
                       {topic.library && topic.edited && (
                         <button type="button" className="btn-ghost" onClick={() => resetEdit(topic)}>

@@ -26,11 +26,22 @@ export async function generateSpeakingTopic(excludeQuestions = [], context = "",
   const hints = Array.isArray(result?.hints)
     ? result.hints.map((hint) => String(hint || "").trim()).filter(Boolean).slice(0, 4)
     : [];
-  if (!question || hints.length !== 4) {
+  // Đề lịch trình A/B có 3 câu hướng dẫn chung + 2 phiếu, không dùng 4 gợi ý.
+  const sheets = result?.sheets && typeof result.sheets === "object" ? result.sheets : null;
+  if (mode === "schedule") {
+    if (!question || !Array.isArray(sheets?.A?.hints) || !Array.isArray(sheets?.B?.hints)) {
+      throw new Error("AI chưa tạo được đủ phiếu A và B. Hãy bấm lại để thử đề khác.");
+    }
+  } else if (!question || hints.length !== 4) {
     throw new Error("AI chưa tạo đủ 1 câu hỏi và 4 gợi ý. Hãy bấm lại để thử đề khác.");
   }
   const caption = String(result?.caption || "").trim();
-  return { question, hints, ...(caption ? { caption } : {}) };
+  return {
+    question,
+    hints,
+    ...(caption ? { caption } : {}),
+    ...(sheets ? { sheets } : {}),
+  };
 }
 
 // Nộp câu trả lời đầu: AI chấm và tạo 1-6 câu hỏi phụ cùng lúc.

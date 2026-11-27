@@ -77,7 +77,8 @@ export function useSpeaking(options = {}) {
     if (!question) return false;
     const hints = cleanHints(values?.hints);
     const schedule = values?.schedule;
-    const extra = schedule ? { schedule } : {};
+    const sheets = values?.sheets;
+    const extra = { ...(schedule ? { schedule } : {}), ...(sheets ? { sheets } : {}) };
     if (topic.library) {
       setOverrides((current) => ({
         ...current,

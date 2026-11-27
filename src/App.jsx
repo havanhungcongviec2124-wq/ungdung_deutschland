@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { BookOpen, CalendarClock, CheckCircle2, Layers3, Link2, Mic, PenLine, Upload } from "lucide-react";
+import { BookOpen, CalendarClock, CheckCircle2, GraduationCap, Layers3, Link2, Mic, PenLine, Upload } from "lucide-react";
 import AppContent from "./components/AppContent";
 import AppModals from "./components/AppModals";
 import AppShell from "./components/AppShell";
 import { useAppInstall } from "./hooks/useAppInstall";
+import useExam from "./hooks/useExam";
 import { useImport } from "./hooks/useImport";
 import { useLibrary } from "./hooks/useLibrary";
 import { useNotice } from "./hooks/useNotice";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { id: "speaking", label: "Luyện nói", icon: Mic },
   { id: "schedule-speaking", label: "Thống nhất lịch trình", icon: CalendarClock },
   { id: "writing", label: "Luyện viết SMS và Thư", icon: PenLine },
+  { id: "test", label: "Làm bài Test", icon: GraduationCap },
   { id: "import", label: "Nhập hàng loạt", icon: Upload },
   { id: "shared-link", label: "Thêm bằng link chia sẻ", icon: Link2 },
 ];
@@ -38,13 +40,24 @@ export default function App() {
   const speaking = useSpeaking();
   const scheduleSpeaking = useScheduleSpeaking();
   const writing = useWriting();
+  const examFlow = useExam(library.cards);
   const practice = usePracticeProgress();
-  const sharing = useSharing({ library, speaking, toast, setNotice, setModal, setView });
+  const sharing = useSharing({
+    library,
+    speaking,
+    scheduleSpeaking,
+    toast,
+    setNotice,
+    setModal,
+    setView,
+  });
   const install = useAppInstall({ toast, setModal });
 
   // Các hành động dùng chung giữa thanh điều hướng, nội dung và modal.
   const actions = {
     showCards: () => setView("cards"),
+    showSpeaking: () => setView("speaking"),
+    showWriting: () => setView("writing"),
     showImport: () => setView("import"),
     showFolderOverview: () => setView("folder-overview"),
     closeStudy: () => setView("cards"),
@@ -101,6 +114,7 @@ export default function App() {
           speaking={speaking}
           scheduleSpeaking={scheduleSpeaking}
           writing={writing}
+          examFlow={examFlow}
           practice={practice}
           actions={actions}
         />

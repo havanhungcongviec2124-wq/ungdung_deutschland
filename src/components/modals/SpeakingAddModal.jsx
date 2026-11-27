@@ -5,6 +5,12 @@ import { parseTopicsFromFile } from "../../lib/speakingFileImport";
 import { topicKey } from "../../lib/speakingData";
 import { buildScheduleFromLines } from "../../lib/scheduleInput";
 
+const SHEET_HINTS = [
+  "Jeder Kandidat bekommt eine eigene Aufgabe.",
+  "Ihr sprecht auf Deutsch und findet einen gemeinsamen Termin.",
+  "Am Ende sagt eine Person den Prüfern die Vereinbarung.",
+];
+
 export default function SpeakingAddModal({
   boards,
   onAddTopics,
@@ -14,8 +20,10 @@ export default function SpeakingAddModal({
 }) {
   const [mode, setMode] = useState("custom");
   const [customQuestion, setCustomQuestion] = useState("");
-  const [customCaption, setCustomCaption] = useState("");
-  const [customHints, setCustomHints] = useState("");
+  const [customSheets, setCustomSheets] = useState({
+    A: { caption: "Freitag, 01.11. · Aufgabenblatt A", hints: "" },
+    B: { caption: "Freitag, 01.11. · Aufgabenblatt B", hints: "" },
+  });
   const [customError, setCustomError] = useState("");
   const [fileTopics, setFileTopics] = useState([]);
   const [selectedFileIndexes, setSelectedFileIndexes] = useState([]);
@@ -32,21 +40,53 @@ export default function SpeakingAddModal({
       .filter(Boolean)
       .slice(0, 8);
 
+  function buildSheet(lines, caption, fallbackCaption) {
+    const hints = parseHints(lines);
+    const schedule = buildScheduleFromLines(hints.join("\n"), caption || fallbackCaption);
+    return schedule ? { hints, schedule, caption: schedule.caption } : null;
+  }
+
+  function updateCustomSheet(side, field, value) {
+    setCustomSheets((current) => ({
+      ...current,
+      [side]: { ...current[side], [field]: value },
+    }));
+    setCustomError("");
+  }
+
   function addCustom() {
     const question = customQuestion.trim();
     if (!question) return;
-    const hints = parseHints(customHints);
-    if (scheduleMode) {
-      const schedule = buildScheduleFromLines(hints.join("\n"), customCaption);
-      if (!schedule) {
-        setCustomError("Hãy nhập ít nhất một dòng lịch, ví dụ: 08.00 – 09.00: länger schlafen");
-        return;
-      }
-      onAddTopics([{ topicId: "custom", question, hints, custom: true, schedule }]);
-    } else {
+    if (!scheduleMode) {
+      const hints = parseHints(customSheets.A.hints);
       if (!hints.length) return;
       onAddTopics([{ topicId: "custom", question, hints, custom: true }]);
+      onClose();
+      return;
     }
+    const a = buildSheet(
+      customSheets.A.hints,
+      customSheets.A.caption,
+      "Freitag, 01.11. · Aufgabenblatt A"
+    );
+    const b = buildSheet(
+      customSheets.B.hints,
+      customSheets.B.caption,
+      "Freitag, 01.11. · Aufgabenblatt B"
+    );
+    if (!a || !b) {
+      setCustomError("Hãy nhập lịch hợp lệ cho cả hai phiếu A và B.");
+      return;
+    }
+    onAddTopics([
+      {
+        topicId: "custom",
+        question,
+        hints: SHEET_HINTS,
+        custom: true,
+        sheets: { A: a.schedule, B: b.schedule },
+      },
+    ]);
     onClose();
   }
 
@@ -57,18 +97,36 @@ export default function SpeakingAddModal({
     setFileError("");
     try {
       const parsed = await parseTopicsFromFile(file);
-      const fresh = parsed
-        .filter((topic) => !addedKeys.has(topicKey(topic)))
-        .map((topic) => {
-          if (!scheduleMode) return topic;
-          const lines = (topic.hints || []).join("\n");
-          const hints = parseHints(lines);
-          const schedule = buildScheduleFromLines(
-            lines,
-            topic.schedule?.caption || file.name.replace(/\.[^.]+$/, "")
+      const baseName = file.name.replace(/\.[^.]+$/, "");
+      let fresh = [];
+      if (!scheduleMode) {
+        fresh = parsed.filter((topic) => !addedKeys.has(topicKey(topic)));
+      } else {
+        for (let index = 0; index < parsed.length; index += 2) {
+          const first = parsed[index];
+          const second = parsed[index + 1] || first;
+          const a = buildSheet(
+            (first.hints || []).join("\n"),
+            first.schedule?.caption,
+            `${baseName} · A`
           );
-          return schedule ? { ...topic, hints, schedule } : topic;
-        });
+          const b = buildSheet(
+            (second.hints || []).join("\n"),
+            second.schedule?.caption,
+            `${baseName} · B`
+          );
+          if (!a || !b) continue;
+          const topic = {
+            topicId: "file",
+            question: first.question,
+            hints: SHEET_HINTS,
+            custom: true,
+            sheets: { A: a.schedule, B: b.schedule },
+            sources: { A: a, B: b },
+          };
+          if (!addedKeys.has(topicKey(topic))) fresh.push(topic);
+        }
+      }
       setFileTopics(fresh);
       setSelectedFileIndexes(fresh.map((_, index) => index));
       setEditing({});
@@ -89,9 +147,13 @@ export default function SpeakingAddModal({
 
   function topicValue(topic, index, field) {
     if (editing[index]?.[field] !== undefined) return editing[index][field];
-    if (field === "hints") return (topic.hints || []).join("\n");
-    if (field === "caption") return topic.schedule?.caption || "";
-    return topic.question;
+    if (field === "question") return topic.question;
+    if (!scheduleMode) return (topic.hints || []).join("\n");
+    if (field === "captionA") return topic.sources?.A?.caption || "";
+    if (field === "captionB") return topic.sources?.B?.caption || "";
+    if (field === "hintsA") return (topic.sources?.A?.hints || []).join("\n");
+    if (field === "hintsB") return (topic.sources?.B?.hints || []).join("\n");
+    return "";
   }
 
   function updateTopicValue(index, field, value) {
@@ -115,19 +177,33 @@ export default function SpeakingAddModal({
       .map((index) => {
         const topic = fileTopics[index];
         const question = topicValue(topic, index, "question").trim();
-        const lines = topicValue(topic, index, "hints");
-        const hints = parseHints(lines);
         if (!question) return null;
-        if (!scheduleMode) return { ...topic, question, hints };
-        const schedule = buildScheduleFromLines(lines, topicValue(topic, index, "caption"));
-        if (!schedule) return null;
-        return { ...topic, question, hints, schedule };
+        if (!scheduleMode) {
+          return { ...topic, question, hints: parseHints(topicValue(topic, index, "hints")) };
+        }
+        const a = buildSheet(
+          topicValue(topic, index, "hintsA"),
+          topicValue(topic, index, "captionA"),
+          "Aufgabenblatt A"
+        );
+        const b = buildSheet(
+          topicValue(topic, index, "hintsB"),
+          topicValue(topic, index, "captionB"),
+          "Aufgabenblatt B"
+        );
+        if (!a || !b) return null;
+        return {
+          ...topic,
+          question,
+          hints: SHEET_HINTS,
+          sheets: { A: a.schedule, B: b.schedule },
+        };
       })
       .filter(Boolean);
     if (!chosen.length) {
       setFileError(
         scheduleMode
-          ? "Có đề tài chưa đúng dạng lịch (HH.MM – HH.MM: hoạt động). Hãy sửa rồi thử lại."
+          ? "Có đề chưa đúng dạng lịch A/B (HH.MM – HH.MM: hoạt động). Hãy sửa rồi thử lại."
           : "Chưa có đề tài hợp lệ để thêm."
       );
       return;
@@ -137,10 +213,12 @@ export default function SpeakingAddModal({
   }
 
   return (
-    <Modal title={scheduleMode ? "Thêm đề tài lịch trình" : "Thêm đề tài luyện nói"} onClose={onClose}>
+    <Modal title={scheduleMode ? "Thêm đề tài lịch trình A/B" : "Thêm đề tài luyện nói"} onClose={onClose}>
       <p className="modal-hint">
         {intro ||
-          "49 chủ đề Goethe A2 đã có sẵn trong danh sách Luyện nói. Dùng hình này để thêm đề tài của riêng bạn hoặc nhập từ tệp PDF/Word."}
+          (scheduleMode
+            ? "Mỗi đề gồm hai phiếu A/B. Bạn và AI mỗi người nhận một phiếu, ngẫu nhiên vai và lượt mở lời."
+            : "49 chủ đề Goethe A2 đã có sẵn trong danh sách Luyện nói. Dùng hình này để thêm đề tài của riêng bạn hoặc nhập từ tệp PDF/Word.")}
       </p>
 
       <div className="speaking-modal-tabs">
@@ -149,7 +227,7 @@ export default function SpeakingAddModal({
           className={mode === "custom" ? "active" : ""}
           onClick={() => setMode("custom")}
         >
-          {scheduleMode ? "Tự nhập lịch" : "Tự nhập đề tài"}
+          {scheduleMode ? "Tự nhập A/B" : "Tự nhập đề tài"}
         </button>
         <button
           type="button"
@@ -170,48 +248,50 @@ export default function SpeakingAddModal({
                 setCustomQuestion(event.target.value);
                 setCustomError("");
               }}
-              placeholder={
-                scheduleMode
-                  ? "Wann könnt ihr euch treffen?"
-                  : "Was machen Sie gern am Sonntag?"
-              }
+              placeholder="Wann könnt ihr euch treffen?"
             />
           </label>
-          {scheduleMode && (
-            <label>
-              Tên lịch / ngày (không bắt buộc)
-              <input
-                value={customCaption}
-                onChange={(event) => setCustomCaption(event.target.value)}
-                placeholder="Freitag, 01.11."
-              />
-            </label>
-          )}
-          <label>
-            {scheduleMode ? "Lịch hoạt động (mỗi dòng một khung giờ)" : "Gợi ý (mỗi dòng một ý)"}
-            <textarea
-              value={customHints}
-              onChange={(event) => {
-                setCustomHints(event.target.value);
-                setCustomError("");
-              }}
-              placeholder={
-                scheduleMode
-                  ? "08.00 – 09.00: länger schlafen\n12.00 – 13.00: mit Mario skaten\n16.00 – 18.00: einkaufen gehen"
-                  : "Freunde treffen?\nHobbys?\nLange schlafen?"
-              }
-              rows={scheduleMode ? 5 : 4}
-            />
-          </label>
+
+          {(scheduleMode ? ["A", "B"] : ["A"]).map((side) => (
+            <div className="speaking-sheet-editor" key={side}>
+              {scheduleMode && <h3>Phiếu {side}</h3>}
+              {scheduleMode && (
+                <label>
+                  Tên lịch / ngày
+                  <input
+                    value={customSheets[side].caption}
+                    onChange={(event) => updateCustomSheet(side, "caption", event.target.value)}
+                    placeholder={`Freitag, 01.11. · Aufgabenblatt ${side}`}
+                  />
+                </label>
+              )}
+              <label>
+                {scheduleMode ? "Lịch hoạt động (mỗi dòng một khung giờ)" : "Gợi ý (mỗi dòng một ý)"}
+                <textarea
+                  value={customSheets[side].hints}
+                  onChange={(event) => updateCustomSheet(side, "hints", event.target.value)}
+                  placeholder={
+                    scheduleMode
+                      ? side === "A"
+                        ? "08.00 – 09.00: länger schlafen\n12.00 – 13.00: mit Marto skaten"
+                        : "08.00 – 10.00: gemütlich frühstücken\n14.00 – 15.00: Bücher abgeben"
+                      : "Freunde treffen?\nHobbys?\nLange schlafen?"
+                  }
+                  rows={5}
+                />
+              </label>
+            </div>
+          ))}
+
           {scheduleMode && (
             <p className="modal-hint">
-              <CalendarClock size={13} /> Mỗi dòng gồm giờ bắt đầu – giờ kết thúc và hoạt động. Bảng
-              lịch sẽ được tạo tự động; giờ trống hiện <strong>frei</strong>.
+              <CalendarClock size={13} /> Mỗi dòng gồm giờ bắt đầu – giờ kết thúc và hoạt động. Giờ
+              trống hiện <strong>frei</strong>. Hai phiếu cần có ít nhất một giờ cùng rảnh.
             </p>
           )}
           {customError && <p className="form-error">{customError}</p>}
           <div className="speaking-modal-actions">
-            <span>{scheduleMode ? "Tối đa 8 hoạt động" : "Tối đa 8 gợi ý"}</span>
+            <span>{scheduleMode ? "Tối đa 8 hoạt động mỗi phiếu" : "Tối đa 8 gợi ý"}</span>
             <button
               type="button"
               className="btn-primary"
@@ -246,8 +326,9 @@ export default function SpeakingAddModal({
             {scheduleMode ? (
               <>
                 Tệp cần có các dạng <strong>08.00 – 09.00: joggen</strong> hoặc{" "}
-                <strong>08.00: joggen</strong>. Hỗ trợ <strong>.pdf</strong>, <strong>.docx</strong>,{" "}
-                <strong>.txt</strong>; đọc ngay trên thiết bị. Có thể sửa từng đề trước khi thêm.
+                <strong>08.00: joggen</strong>. Hai đề liên tiếp được ghép thành phiếu A và B. Hỗ trợ{" "}
+                <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>; đọc ngay trên
+                thiết bị.
               </>
             ) : (
               <>
@@ -301,10 +382,12 @@ export default function SpeakingAddModal({
                         <span className="speaking-topic-text">
                           <strong>{topicValue(topic, index, "question")}</strong>
                           <small>
-                            {topicValue(topic, index, "hints")
-                              .split("\n")
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {scheduleMode
+                              ? "2 phiếu A/B"
+                              : topicValue(topic, index, "hints")
+                                  .split("\n")
+                                  .filter(Boolean)
+                                  .join(" · ")}
                           </small>
                         </span>
                         <button
@@ -334,23 +417,36 @@ export default function SpeakingAddModal({
                             }
                             placeholder="Câu hỏi tiếng Đức"
                           />
-                          {scheduleMode && (
-                            <input
-                              value={topicValue(topic, index, "caption")}
-                              onChange={(event) =>
-                                updateTopicValue(index, "caption", event.target.value)
-                              }
-                              placeholder="Tên lịch / ngày"
-                            />
-                          )}
-                          <textarea
-                            rows={3}
-                            value={topicValue(topic, index, "hints")}
-                            onChange={(event) => updateTopicValue(index, "hints", event.target.value)}
-                            placeholder={
-                              scheduleMode ? "08.00 – 09.00: joggen" : "Mỗi dòng một gợi ý"
-                            }
-                          />
+                          {(scheduleMode ? ["A", "B"] : [""]).map((side) => (
+                            <div className="speaking-sheet-editor" key={side || "hints"}>
+                              {scheduleMode && <h3>Phiếu {side}</h3>}
+                              {scheduleMode && (
+                                <input
+                                  value={topicValue(topic, index, `caption${side}`)}
+                                  onChange={(event) =>
+                                    updateTopicValue(index, `caption${side}`, event.target.value)
+                                  }
+                                  placeholder="Tên lịch / ngày"
+                                />
+                              )}
+                              <textarea
+                                rows={3}
+                                value={topicValue(
+                                  topic,
+                                  index,
+                                  scheduleMode ? `hints${side}` : "hints"
+                                )}
+                                onChange={(event) =>
+                                  updateTopicValue(
+                                    index,
+                                    scheduleMode ? `hints${side}` : "hints",
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="08.00 – 09.00: joggen"
+                              />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

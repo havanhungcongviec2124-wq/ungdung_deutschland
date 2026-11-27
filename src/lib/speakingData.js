@@ -19,9 +19,12 @@ function normalizeSchedule(value) {
     : [];
   const rows = Array.isArray(value.rows)
     ? value.rows
-        .slice(0, 10)
+        .slice(0, 20)
         .map((row) => (Array.isArray(row) ? row.slice(0, 3).map((cell) => String(cell || "").trim()) : []))
         .filter((row) => row.some(Boolean))
+    : [];
+  const items = Array.isArray(value.items)
+    ? value.items.slice(0, 20).map((item) => String(item || "").trim()).filter(Boolean)
     : [];
   const slots = Array.isArray(value.slots)
     ? value.slots.slice(0, 24).map((item) => String(item || "").trim()).filter(Boolean)
@@ -40,8 +43,19 @@ function normalizeSchedule(value) {
   if (columns.length && slots.length && blocks.length) {
     return { caption, columns, slots, blocks };
   }
+  if (columns.length && items.length) return { caption, columns, items };
   if (columns.length && rows.length) return { caption, columns, rows };
   return null;
+}
+
+function normalizeSheets(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const sheets = {};
+  for (const side of ["A", "B"]) {
+    const sheet = normalizeSchedule(value[side]);
+    if (sheet) sheets[side] = sheet;
+  }
+  return Object.keys(sheets).length === 2 ? sheets : null;
 }
 
 function normalizeTopic(value) {
@@ -52,6 +66,7 @@ function normalizeTopic(value) {
     ? value.hints.map((hint) => String(hint || "").trim()).filter(Boolean).slice(0, 8)
     : [];
   const schedule = normalizeSchedule(value.schedule);
+  const sheets = normalizeSheets(value.sheets);
   return {
     id: String(value.id || "").trim(),
     topicId: String(value.topicId || value.id || "custom").trim(),
@@ -61,6 +76,7 @@ function normalizeTopic(value) {
     aiGenerated: Boolean(value.aiGenerated),
     addedAt: String(value.addedAt || ""),
     ...(schedule ? { schedule } : {}),
+    ...(sheets ? { sheets } : {}),
   };
 }
 
@@ -101,7 +117,13 @@ function normalizeOverride(value) {
     ? value.hints.map((hint) => String(hint || "").trim()).filter(Boolean).slice(0, 8)
     : [];
   const schedule = normalizeSchedule(value.schedule);
-  return { question, hints, ...(schedule ? { schedule } : {}) };
+  const sheets = normalizeSheets(value.sheets);
+  return {
+    question,
+    hints,
+    ...(schedule ? { schedule } : {}),
+    ...(sheets ? { sheets } : {}),
+  };
 }
 
 export function readSpeakingOverrides(options = {}) {

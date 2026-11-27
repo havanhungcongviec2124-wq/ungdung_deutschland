@@ -66,12 +66,25 @@ const SENTENCE_QUESTION_SCHEMA = {
   },
   required: ["question", "translation", "hint", "expectedAnswer"]
 };
+const SPEAKING_SHEET_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    caption: { type: "STRING" },
+    hints: { type: "ARRAY", items: { type: "STRING" } }
+  },
+  required: ["caption", "hints"]
+};
 const SPEAKING_TOPIC_SCHEMA = {
   type: "OBJECT",
   properties: {
     question: { type: "STRING" },
     hints: { type: "ARRAY", items: { type: "STRING" } },
-    caption: { type: "STRING" }
+    caption: { type: "STRING" },
+    sheets: {
+      type: "OBJECT",
+      properties: { A: SPEAKING_SHEET_SCHEMA, B: SPEAKING_SHEET_SCHEMA },
+      required: ["A", "B"]
+    }
   },
   required: ["question", "hints"]
 };
@@ -104,7 +117,8 @@ const SCHEDULE_CHAT_SCHEMA = {
     explanation: { type: "STRING" },
     userTranslation: { type: "STRING" },
     done: { type: "BOOLEAN" },
-    agreement: { type: "STRING" }
+    agreement: { type: "STRING" },
+    awaitingReport: { type: "BOOLEAN" }
   },
   required: ["message", "translation", "explanation", "userTranslation", "done", "agreement"]
 };
@@ -132,6 +146,27 @@ const WRITING_TOPIC_SCHEMA = {
     maxWords: { type: "INTEGER" }
   },
   required: ["question", "hints", "format", "minWords", "maxWords"]
+};
+const EXAM_GRADE_ITEM_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    score: { type: "INTEGER" },
+    correct: { type: "BOOLEAN" },
+    reference: { type: "STRING" },
+    errors: { type: "ARRAY", items: { type: "STRING" } },
+    explanation: { type: "STRING" },
+    corrected: { type: "STRING" },
+    tips: { type: "ARRAY", items: { type: "STRING" } },
+    points: { type: "ARRAY", items: { type: "BOOLEAN" } }
+  },
+  required: ["score", "correct", "reference", "errors", "explanation", "corrected", "tips", "points"]
+};
+const EXAM_GRADE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    grades: { type: "ARRAY", items: EXAM_GRADE_ITEM_SCHEMA }
+  },
+  required: ["grades"]
 };
 const SPEAKING_TOPIC_CATEGORIES = [
   "Essen und Trinken: Frühstück, Lieblingsgericht, Restaurant, Lebensmittel einkaufen",
@@ -642,14 +677,16 @@ function speakingPayload(body, answer) {
   const question = cleanText(body?.question, 600);
   const hints = Array.isArray(body?.hints) ? body.hints.slice(0, 8).map((hint) => cleanText(hint, 200)).filter(Boolean) : [];
   return {
-    level: SPEAKING_LEVEL,
+    // Bài thi gửi đúng trình độ A1/A2/B1; luyện nói thường dùng cố định A2.2.
+    level: normalizeAiLevel(body?.level || SPEAKING_LEVEL),
     word: question,
     note: hints.join(" | "),
     sentence: cleanText(answer, 600)
   };
 }
-function speakingGradingInstruction() {
-  return `Chấm câu trả lời tiếng Đức cho một đề nói Goethe A2 (chủ đề và gợi ý nằm trong dữ liệu gửi kèm). Trình độ cố định ${SPEAKING_LEVEL}. ${levelGuidance(SPEAKING_LEVEL)} Đánh giá NGỮ NGHĨA trước, sau đó mới xét ngữ pháp: câu tự nhiên, đúng ý câu hỏi, đúng ngữ pháp A2 là ĐÚNG dù khác mẫu hoặc không liệt kê từng gợi ý. Không bắt người học lặp lại chính từ hỏi (wer/was/wo/wie...). Chỉ bắt lỗi trong trình độ A2; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. KHÔNG chấm sai chỉ vì khoảng trắng thừa trước dấu câu (., ,, !, ?, :, ;); đó là lỗi định dạng nhỏ, vẫn tính đúng. corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn; luôn gọi người trả lời là 'bạn', không dùng 'học sinh'.`;
+function speakingGradingInstruction(level = SPEAKING_LEVEL) {
+  const activeLevel = normalizeAiLevel(level);
+  return `Chấm câu trả lời tiếng Đức cho một đề nói (chủ đề và gợi ý nằm trong dữ liệu gửi kèm). Trình độ: ${activeLevel}. ${levelGuidance(activeLevel)} Đánh giá NGỮ NGHĨA trước, sau đó mới xét ngữ pháp: câu tự nhiên, đúng ý câu hỏi, đúng ngữ pháp theo trình độ đã cho là ĐÚNG dù khác mẫu hoặc không liệt kê từng gợi ý. Không bắt người học lặp lại chính từ hỏi (wer/was/wo/wie...). Chỉ bắt lỗi trong trình độ ${activeLevel}; không trừ điểm vì câu chưa dùng cấu trúc cao hơn. KHÔNG chấm sai chỉ vì khoảng trắng thừa trước dấu câu (., ,, !, ?, :, ;); đó là lỗi định dạng nhỏ, vẫn tính đúng. corrected là câu trả lời mẫu hay nhất bằng tiếng Đức; nếu đã đúng thì giữ nguyên. explanation là tối đa 3 câu tiếng Việt, nêu lỗi và cách sửa; nếu đúng thì khen ngắn; luôn gọi người trả lời là 'bạn', không dùng 'học sinh'.`;
 }
 function normalizeFollowUps(value) {
   if (!Array.isArray(value)) return [];
@@ -676,39 +713,130 @@ function containsVietnamese(value) {
     String(value || "")
   );
 }
+function normalizeScheduleSheet(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const columns = Array.isArray(raw.columns) ? raw.columns.slice(0, 3).map((item) => cleanText(item, 60)).filter(Boolean) : [];
+  const rows = Array.isArray(raw.rows) ? raw.rows.slice(0, 20).map(
+    (row) => Array.isArray(row) ? row.slice(0, 3).map((cell) => cleanText(cell, 120)).filter(Boolean) : []
+  ).filter((row) => row.length) : [];
+  const items = Array.isArray(raw.items) ? raw.items.slice(0, 20).map((item) => cleanText(item, 160)).filter(Boolean) : [];
+  const slots = Array.isArray(raw.slots) ? raw.slots.slice(0, 24).map((item) => cleanText(item, 20)).filter(Boolean) : [];
+  const blocks = Array.isArray(raw.blocks) ? raw.blocks.slice(0, 16).map((block) => ({
+    start: cleanText(block?.start, 20),
+    end: cleanText(block?.end, 20),
+    label: cleanText(block?.label, 160)
+  })).filter((block) => block.start && block.end && block.label) : [];
+  const caption = cleanText(raw.caption, 120);
+  if (columns.length && slots.length && blocks.length) {
+    return { caption, columns, slots, blocks, rows, items };
+  }
+  if (columns.length && items.length) {
+    return { caption, columns, items, rows: [], slots: [], blocks: [] };
+  }
+  if (columns.length && rows.length) {
+    return { caption, columns, rows, slots, blocks, items: [] };
+  }
+  return null;
+}
+function scheduleSide(value, fallback) {
+  return value === "A" || value === "B" ? value : fallback;
+}
+function busyText(sheet) {
+  if (!sheet) return "(keine Angaben)";
+  if (sheet.items?.length) {
+    return sheet.items.join("; ");
+  }
+  if (sheet.blocks.length) {
+    return sheet.blocks.map((block) => `${block.start}-${block.end}: ${block.label}`).join("; ");
+  }
+  if (sheet.rows.length) {
+    return sheet.rows.map((row) => row.join(" / ")).join("; ");
+  }
+  return "(frei)";
+}
+function freeSlots(sheet) {
+  if (!sheet) return [];
+  if (sheet.items?.length) return [];
+  if (sheet.slots?.length) {
+    const occupied = /* @__PURE__ */ new Set();
+    for (const block of sheet.blocks || []) {
+      const start = sheet.slots.indexOf(block.start);
+      const end = sheet.slots.indexOf(block.end);
+      if (start < 0) continue;
+      const last = end >= start ? end : start;
+      for (let index2 = start; index2 <= last; index2 += 1) occupied.add(sheet.slots[index2]);
+    }
+    return sheet.slots.filter((slot) => !occupied.has(slot));
+  }
+  if (sheet.rows?.length) {
+    const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
+    const result = [];
+    for (const row of sheet.rows) {
+      if (!row[0]) continue;
+      if (columns.length >= 3) {
+        for (let index2 = 1; index2 < Math.min(columns.length, row.length); index2 += 1) {
+          if (!row[index2] || /^frei$/i.test(row[index2])) {
+            result.push(`${row[0]} ${columns[index2]}`);
+          }
+        }
+      } else if (row.slice(1).every((cell) => !cell || /^frei$/i.test(cell))) {
+        result.push(row[0]);
+      }
+    }
+    return result;
+  }
+  return [];
+}
 async function scheduleChat(request, env) {
   const body = await parseAiRequest(request);
   if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
   const question = cleanText(body?.question, 300);
   if (!question) return json({ error: "Thiếu đề tài lịch trình." }, 400);
-  const rawSchedule = body?.schedule && typeof body.schedule === "object" ? body.schedule : {};
-  const schedule = {
-    caption: cleanText(rawSchedule.caption, 120),
-    columns: Array.isArray(rawSchedule.columns) ? rawSchedule.columns.slice(0, 3).map((item) => cleanText(item, 60)).filter(Boolean) : [],
-    rows: Array.isArray(rawSchedule.rows) ? rawSchedule.rows.slice(0, 10).map(
-      (row) => Array.isArray(row) ? row.slice(0, 3).map((cell) => cleanText(cell, 120)).filter(Boolean) : []
-    ).filter((row) => row.length) : [],
-    slots: Array.isArray(rawSchedule.slots) ? rawSchedule.slots.slice(0, 24).map((item) => cleanText(item, 20)).filter(Boolean) : [],
-    blocks: Array.isArray(rawSchedule.blocks) ? rawSchedule.blocks.slice(0, 16).map((block) => ({
-      start: cleanText(block?.start, 20),
-      end: cleanText(block?.end, 20),
-      label: cleanText(block?.label, 160)
-    })).filter((block) => block.start && block.end && block.label) : []
+  const userSide = scheduleSide(body?.userSide, "A");
+  const aiSide = userSide === "A" ? "B" : "A";
+  const opener = scheduleSide(body?.opener, aiSide);
+  const reporter = scheduleSide(body?.reporter, aiSide);
+  const finalReport = body?.finalReport === true;
+  const legacy = normalizeScheduleSheet(body?.schedule);
+  const sheets = {
+    A: normalizeScheduleSheet(body?.sheets?.A) || legacy,
+    B: normalizeScheduleSheet(body?.sheets?.B) || legacy
   };
-  const history = Array.isArray(body?.history) ? body.history.slice(-12).map((item) => ({
-    role: item?.role === "user" ? "user" : "ai",
-    text: cleanText(item?.text, 400)
-  })).filter((item) => item.text) : [];
-  const opener = body?.opener === "user" ? "user" : "ai";
+  if (!sheets[aiSide]) {
+    return json({ error: "Thiếu phiếu lịch trình của thí sinh." }, 400);
+  }
+  const history = Array.isArray(body?.history) ? body.history.slice(-12).map((item) => {
+    const side = scheduleSide(item?.side, item?.role === "user" ? userSide : aiSide);
+    return {
+      side,
+      role: side === userSide ? "user" : "ai",
+      text: cleanText(item?.text, 400)
+    };
+  }).filter((item) => item.text) : [];
   if (!await allowAiRequest(request, env)) {
     return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
   }
+  const activityMode = Boolean(sheets[aiSide]?.items?.length);
+  const common = activityMode ? [] : freeSlots(sheets.A).filter((slot) => freeSlots(sheets.B).includes(slot));
+  const confirmationText = [...history].reverse().find((item) => item.side === userSide)?.text || "";
+  const userConfirmed = /abgemacht|einverstanden|wir haben uns geeinigt|machen wir das|passt mir|dann machen wir|ja,?\s+(wir|dann)/i.test(
+    confirmationText
+  );
   const transcript = history.map(
-    (item, index2) => `${index2 + 1}. ${item.role === "user" ? "Người học" : "Bạn cùng lớp (AI)"}: ${item.text}`
+    (item, index2) => `${index2 + 1}. Kandidat ${item.side}${item.side === userSide ? " (Bạn)" : " (AI)"}: ${item.text}`
   ).join("\n") || "(chưa có lượt hội thoại nào)";
-  const instruction = `Bạn đóng vai một bạn cùng lớp người Đức, đang luyện A2 với bạn (một người học Việt Nam). Nhiệm vụ của hai người: ${question}. Lịch bận của bạn (các khung giờ/ngày bạn KHÔNG rảnh): ${schedule.blocks.length ? schedule.blocks.map((block) => `${block.start}-${block.end}: ${block.label}`).join("; ") : JSON.stringify(schedule.rows)}. Không được đề xuất những khung giờ đã có trong lịch bận này. Hội thoại hiện tại:
+  let instruction = `Bạn đóng vai Kandidat ${aiSide} trong bài thi Goethe-Zertifikat A2 Sprechen Teil 3. Người học là Kandidat ${userSide}. Nhiệm vụ của hai người: ${question}. ` + (activityMode ? `Bạn CHỈ biết các gợi ý trên phiếu của mình: ${busyText(sheets[aiSide])}. Bạn không được tiết lộ hay nhắc đến việc bạn biết phiếu của Kandidat ${userSide}. Mục tiêu: thảo luận bằng tiếng Đức, nêu lý do thích hoặc không thích, rồi cùng chọn MỘT hoạt động hoặc MỘT món đồ mà cả hai đồng ý. ` : `Bạn CHỈ biết lịch bận của chính mình: ${busyText(sheets[aiSide])}. Bạn không được tiết lộ hay nhắc đến việc bạn biết lịch của Kandidat ${userSide}. Các thời điểm hai người cùng rảnh (chỉ để bạn kiểm tra, không được liệt kê trong hội thoại): ${common.length ? common.join(", ") : "không rõ"}. `) + `Hội thoại hiện tại:
 ${transcript}
-` + (history.length === 0 ? opener === "ai" ? "Chưa ai nói. Bạn hãy mở lời trước bằng tiếng Đức: chào nhau và hỏi khi nào bạn rảnh, hoặc đề xuất một khung giờ còn trống. explanation để trống. done=false.\n" : "Bạn sẽ mở lời trước. Hãy trả lời ngắn bằng tiếng Đức như thể bạn vừa được hỏi (MESSAGE và TRANSLATION vẫn phải có; explanation để trống; done=false).\n" : "Hãy phản hồi câu cuối của bạn bằng tiếng Đức A2 tự nhiên, 1-2 câu. Nếu bạn nêu một thời điểm cụ thể và thời điểm đó KHÔNG trùng lịch bận của bạn, hãy chấp nhận và chốt: đặt done=true và agreement là câu xác nhận tiếng Đức với thời điểm đó; message cũng chính là câu chốt. Nếu thời điểm đó trùng lịch bận, từ chối nhẹ nhàng rồi đề xuất một khung giờ khác còn trống, done=false. Nếu câu của bạn chưa rõ thời điểm, hãy hỏi lại bằng Wann / Um wie viel Uhr / Passt ...?, done=false. explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của bạn (đúng sai, cách nói tự nhiên hơn), luôn gọi người nói là 'bạn', không dùng 'học sinh'. Nếu đã quá 8 lượt, hãy cố chốt lịch ở lượt này.\n") + `QUAN TRỌNG: MESSAGE và AGREEMENT chỉ được chứa tiếng Đức, TUYỆT ĐỐI không được tiếng Việt. message LUÔN là tiếng Đức và là nội dung chính; translation là bản dịch tiếng Việt của message; userTranslation BẮT BUỘC là bản dịch tiếng Việt của câu cuối cùng của người học khi history không rỗng (không được để trống, không được lặp lại explanation); chỉ để trống ở lượt mở lời của AI; explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của người học. Không thêm markdown, không thêm lời dư ngoài JSON.`;
+`;
+  if (finalReport) {
+    instruction += `Người học vừa nói câu báo cáo cuối cho giám khảo. Hãy kiểm tra câu đó bằng tiếng Đức A2: ` + (activityMode ? `có nêu rõ hoạt động hoặc món đồ đã chọn và có dạng "Wir haben uns darauf geeinigt, dass ..." hoặc tương đương. ` : `có nêu thời điểm đã chốt và có dạng "Wir haben uns darauf geeinigt, dass ..." hoặc tương đương. `) + `Đặt done=true, awaitingReport=false. agreement chính là câu báo cáo của người học, giữ nguyên nếu đúng; nếu chưa đúng thì sửa thành câu tiếng Đức đúng. message là câu xác nhận ngắn bằng tiếng Đức của bạn. `;
+  } else if (!history.length) {
+    instruction += opener === aiSide ? activityMode ? "Chưa ai nói. Bạn hãy mở lời trước bằng tiếng Đức: chào nhau rồi đề xuất một gợi ý trên phiếu của bạn (kèm lý do) hoặc hỏi bạn muốn làm gì. done=false, awaitingReport=false, explanation để trống.\n" : `Chưa ai nói. Bạn hãy mở lời trước bằng tiếng Đức: chào nhau và hỏi khi nào bạn rảnh, hoặc đề xuất ${common.length ? `đúng một trong các thời điểm cùng rảnh: ${common.join(", ")}` : "một thời điểm phù hợp"}. done=false, awaitingReport=false, explanation để trống.
+` : "Kandidat " + userSide + " sẽ mở lời trước. Bạn chỉ cần chờ lượt của mình; nếu bắt buộc phải trả lời, hãy nói ngắn bằng tiếng Đức. done=false, awaitingReport=false.\n";
+  } else {
+    instruction += "Hãy phản hồi câu cuối của Kandidat " + userSide + " bằng tiếng Đức A2 tự nhiên, 1-2 câu. " + (activityMode ? activityMode && userConfirmed ? "Người học vừa xác nhận đồng ý (abgemacht / wir haben uns geeinigt). Bạn PHẢI chấp nhận ngắn gọn bằng tiếng Đức, KHÔNG được đưa thêm gợi ý khác, KHÔNG được đổi ý. Coi như đã chốt. " : "Hãy nói về gợi ý của bạn hoặc phản hồi gợi ý của bạn kèm một lý do (Warum / Warum nicht). Khi hai bên đã cùng đồng ý MỘT hoạt động hoặc MỘT món đồ cụ thể, coi như đã chốt; nếu câu trả lời còn chung chung hoặc chưa rõ, hãy hỏi lại bằng Findest du ...? / Was meinst du? / Passt das? done=false. Chỉ được chọn activity/món đồ có trong phiếu của bạn hoặc do bạn ấy đề xuất. " : `Chỉ được đề xuất hoặc chốt các thời điểm cùng rảnh đã nêu ở trên (${common.join(", ") || "không có"}). Nếu chỉ có một thời điểm, hãy đề xuất đúng thời điểm đó, không đề xuất khoảng giờ khác. Nếu bạn nêu một thời điểm cụ thể và thời điểm đó nằm trong các thời điểm cùng rảnh, hai bên đã chốt được lịch. Nếu thời điểm đó trùng lịch bận của bạn, từ chối nhẹ nhàng rồi đề xuất một giờ cùng rảnh khác, done=false. Nếu câu của bạn chưa rõ thời điểm, hãy hỏi lại bằng Wann / Um wie viel Uhr / Passt ...?, done=false. `) + (reporter === userSide ? `Vì Kandidat ${userSide} là người báo cáo cho giám khảo, khi đã chốt xong đừng tự báo cáo: hãy mời bạn nói câu chốt bằng tiếng Đức và đặt awaitingReport=true, done=false, agreement để trống. ` : "Khi đã chốt xong, bạn hãy báo cáo cho giám khảo bằng một câu tiếng Đức, đặt done=true, agreement đúng bằng câu báo cáo đó, awaitingReport=false. ") + "explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của người học (đúng sai, cách nói tự nhiên hơn), luôn gọi người nói là 'bạn', không dùng 'học sinh' hay 'em'. " + (activityMode ? "Nếu đã quá 8 lượt, hãy cố chốt ở lượt này.\n" : "Nếu đã quá 8 lượt, hãy cố chốt lịch ở lượt này.\n");
+  }
+  instruction += `QUAN TRỌNG: MESSAGE và AGREEMENT chỉ được chứa tiếng Đức, TUYỆT ĐỐI không được tiếng Việt. message LUÔN là tiếng Đức và là nội dung chính; translation là bản dịch tiếng Việt của message; userTranslation BẮT BUỘC là bản dịch tiếng Việt của câu cuối cùng của người học khi history không rỗng (không được để trống, không được lặp lại explanation); chỉ để trống ở lượt mở lời của AI; explanation là nhận xét NGẮN BẰNG TIẾNG VIỆT về câu cuối của người học. Không thêm markdown, không thêm lời dư ngoài JSON.`;
   const payload = {
     level: SPEAKING_LEVEL,
     word: "Termine vereinbaren",
@@ -726,16 +854,23 @@ ${transcript}
   if (!message || containsVietnamese(message)) {
     message = history.length ? "Entschuldigung, kannst du das bitte noch einmal sagen?" : "Hallo! Wann hast du Zeit?";
   }
+  const lastUserText = [...history].reverse().find((item) => item.role === "user")?.text || "";
+  let agreement = cleanText(result.agreement, 400);
+  if (containsVietnamese(agreement) || !agreement && finalReport) {
+    agreement = finalReport ? lastUserText : message;
+  }
+  const awaitingReport = !finalReport && reporter === userSide && Boolean(result.awaitingReport);
+  const done = finalReport || Boolean(result.done) && !awaitingReport;
+  if (done && !agreement) agreement = message;
   return json({
     message,
     translation: cleanText(result.translation, 400),
     explanation: cleanText(result.explanation, 500),
     userTranslation: cleanText(result.userTranslation, 400),
-    done: Boolean(result.done),
-    agreement: (() => {
-      const value = cleanText(result.agreement, 300);
-      return value && !containsVietnamese(value) ? value : message;
-    })()
+    done,
+    agreement,
+    awaitingReport,
+    reporter
   });
 }
 function normalizeGeneratedTopic(result, scheduleMode = false) {
@@ -745,9 +880,25 @@ function normalizeGeneratedTopic(result, scheduleMode = false) {
   const question = /[?.!]$/.test(rawQuestion) ? rawQuestion : `${rawQuestion}?`;
   if (scheduleMode) {
     const timeRange = /^\d{1,2}[.:]\d{2}\s*(?:-|–|—|bis)\s*\d{1,2}[.:]\d{2}\s*[:\-–]\s*.+$/i;
-    if (!hints.every((hint) => timeRange.test(hint))) return null;
-    const caption = cleanText(result?.caption, 120);
-    return { question, hints, ...caption ? { caption } : {} };
+    const sheets = {};
+    for (const side of ["A", "B"]) {
+      const raw = result?.sheets?.[side];
+      const sheetHints = normalizeGeneratedHints(raw?.hints);
+      const caption = cleanText(raw?.caption, 120);
+      if (!caption || sheetHints.length !== 4 || !sheetHints.every((hint) => timeRange.test(hint))) {
+        return null;
+      }
+      sheets[side] = { caption, hints: sheetHints };
+    }
+    return {
+      question,
+      hints: [
+        "Jeder Kandidat bekommt eine eigene Aufgabe.",
+        "Ihr sprecht auf Deutsch und findet einen gemeinsamen Termin.",
+        "Am Ende sagt eine Person den Prüfern die Vereinbarung."
+      ],
+      sheets
+    };
   }
   if (SPEAKING_WEEKEND_WORDS.test(question) || hints.some((hint) => SPEAKING_WEEKEND_WORDS.test(hint))) {
     return null;
@@ -777,7 +928,7 @@ async function generateSpeakingTopic(request, env) {
   let lastResponse = null;
   for (const [attempt, category] of categories.entries()) {
     const seed = `${nonce}-${attempt}-${category.slice(0, 32)}`;
-    const instruction = `Tạo MỘT đề nói mới bằng tiếng Đức cho Goethe-Zertifikat A2 Sprechen Teil 2. Trình độ cố định ${SPEAKING_LEVEL}. ${levelGuidance(SPEAKING_LEVEL)} ` + (context ? `YÊU CẦU RIÊNG của khu vực này (bắt buộc tuân theo): ${category}. ` : `Chủ đề BẮT BUỘC cho lần này là: ${category}. `) + (scheduleMode ? "question là đúng một câu hỏi tiếng Đức về việc tìm thời gian gặp nhau / thống nhất lịch, dùng du hoặc Sie nhưng nhất quán. caption là tên lịch ngắn bằng tiếng Đức, ví dụ 'Freitag, 01.11.' hoặc 'Wochenplan'. hints là đúng 4 dòng, MỖI DÒNG đúng MẪU 'HH.MM – HH.MM: Aktivität?'. Ví dụ: '08.00 – 09.00: länger schlafen?' | '12.00 – 13.00: mit Mario skaten?' | '16.00 – 18.00: einkaufen gehen?' | '19.00 – 20.00: E-Mail an Luise schreiben?'. Giờ kết thúc phải SAU giờ bắt đầu, các khung giờ KHÔNG chồng chéo, được phép dùng tên ngày trong tuần. Không dịch tiếng Việt, không giải thích, không thêm số thứ tự hay dấu gạch đầu dòng. " : "question là đúng một câu hỏi tiếng Đức tự nhiên, ngắn gọn, dùng Sie hoặc du nhưng nhất quán trong cùng đề. TUYỆT ĐỐI không dùng các từ Wochenende, Sonntag, Samstag, Freitagabend trong câu hỏi lẫn các gợi ý. Đừng lặp lại mẫu 'Was machen Sie ...?'; hãy đa dạng dạng hỏi với Wer, Wo, Wann, Warum, Wie, Welche, Wohin, Wem hoặc Mit wem. hints là đúng 4 gợi ý ngắn bằng tiếng Đức, mỗi gợi ý là một cụm từ hoặc ý tưởng có dấu hỏi ở cuối, giống mẫu: Freunde treffen? | Hobbys? | Lange schlafen? | Fernsehen?. Bốn gợi ý phải khác nhau, xoay quanh đúng câu hỏi, đủ để bạn chọn ý trả lời. Không thêm số thứ tự, không thêm dấu gạch đầu dòng vào nội dung gợi ý, không dịch tiếng Việt, không giải thích. ") + "Danh sách câu hỏi trong dữ liệu gửi kèm CHỈ để tránh trùng, không được lấy làm cảm hứng hay sao chép cấu trúc. Mã ngẫu nhiên để tạo đề khác đi: " + seed + ". Trả đúng schema JSON, không markdown.";
+    const instruction = `Tạo MỘT đề nói mới bằng tiếng Đức cho Goethe-Zertifikat A2 Sprechen Teil 2. Trình độ cố định ${SPEAKING_LEVEL}. ${levelGuidance(SPEAKING_LEVEL)} ` + (context ? `YÊU CẦU RIÊNG của khu vực này (bắt buộc tuân theo): ${category}. ` : `Chủ đề BẮT BUỘC cho lần này là: ${category}. `) + (scheduleMode ? "question là đúng một câu hỏi tiếng Đức về việc tìm thời gian gặp nhau / thống nhất lịch, dùng du hoặc Sie nhưng nhất quán. Trả về sheets gồm đúng hai phiếu A và B. Mỗi phiếu có caption ngắn bằng tiếng Đức (ví dụ 'Freitag, 01.11.') và đúng 4 hints. Mỗi hint đúng MẪU 'HH.MM – HH.MM: Aktivität?' và nằm trong khung 08.00 đến 21.00. Ví dụ phiếu A: '08.00 – 09.00: länger schlafen?' | '12.00 – 13.00: mit Marto skaten?' | '16.00 – 18.00: einkaufen gehen?' | '19.00 – 20.00: E-Mail an Luise schreiben?'. Ví dụ phiếu B: '08.00 – 10.00: gemütlich frühstücken?' | '14.00 – 15.00: Bücher abgeben?' | '18.00 – 19.00: Abendessen kochen?' | '21.00 – 21.00: ins Kino?'. Giờ kết thúc phải SAU hoặc BẰNG giờ bắt đầu, các khung giờ trong cùng một phiếu KHÔNG chồng chéo. Hai phiếu phải có ít nhất một khung giờ chung rảnh để hai người có thể hẹn nhau. hints ở cấp cao nhất chỉ là 4 câu hướng dẫn chung bằng tiếng Đức, KHÔNG chứa lịch của A hay B. Không dịch tiếng Việt, không giải thích, không thêm số thứ tự hay dấu gạch đầu dòng. " : "question là đúng một câu hỏi tiếng Đức tự nhiên, ngắn gọn, dùng Sie hoặc du nhưng nhất quán trong cùng đề. TUYỆT ĐỐI không dùng các từ Wochenende, Sonntag, Samstag, Freitagabend trong câu hỏi lẫn các gợi ý. Đừng lặp lại mẫu 'Was machen Sie ...?'; hãy đa dạng dạng hỏi với Wer, Wo, Wann, Warum, Wie, Welche, Wohin, Wem hoặc Mit wem. hints là đúng 4 gợi ý ngắn bằng tiếng Đức, mỗi gợi ý là một cụm từ hoặc ý tưởng có dấu hỏi ở cuối, giống mẫu: Freunde treffen? | Hobbys? | Lange schlafen? | Fernsehen?. Bốn gợi ý phải khác nhau, xoay quanh đúng câu hỏi, đủ để bạn chọn ý trả lời. Không thêm số thứ tự, không thêm dấu gạch đầu dòng vào nội dung gợi ý, không dịch tiếng Việt, không giải thích. ") + "Danh sách câu hỏi trong dữ liệu gửi kèm CHỈ để tránh trùng, không được lấy làm cảm hứng hay sao chép cấu trúc. Mã ngẫu nhiên để tạo đề khác đi: " + seed + ". Trả đúng schema JSON, không markdown.";
     const result = await callAi(
       env,
       instruction,
@@ -821,7 +972,7 @@ async function speakingStart(request, env) {
   if (!await allowAiRequest(request, env)) {
     return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
   }
-  const instruction = speakingGradingInstruction() + "Ngoài ra, hãy tạo từ 1 đến 6 câu hỏi phụ tiếng Đức ngắn, tự nhiên, xoay quanh đúng chủ đề và các gợi ý đã cho để tiếp tục cuộc hội thoại. Mỗi câu hỏi phụ phải khác câu hỏi chính, không trùng nhau, có thể trả lời bằng 1-4 câu ở trình độ A2, kèm translation là nghĩa tiếng Việt và hint là gợi ý ngắn tiếng Việt (tối đa 15 từ). Trả đúng schema, không markdown.";
+  const instruction = speakingGradingInstruction(payload.level) + `Ngoài ra, hãy tạo từ 1 đến 6 câu hỏi phụ tiếng Đức ngắn, tự nhiên, xoay quanh đúng chủ đề và các gợi ý đã cho để tiếp tục cuộc hội thoại. Mỗi câu hỏi phụ phải khác câu hỏi chính, không trùng nhau, có thể trả lời bằng 1-4 câu ở trình độ ${payload.level}, kèm translation là nghĩa tiếng Việt và hint là gợi ý ngắn tiếng Việt (tối đa 15 từ). Trả đúng schema, không markdown.`;
   const result = await callAi(env, instruction, body, answer, SPEAKING_START_SCHEMA, 1024);
   if (result instanceof Response) return result;
   const responseBody = {
@@ -851,7 +1002,7 @@ async function speakingCheck(request, env) {
   if (!await allowAiRequest(request, env)) {
     return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
   }
-  const instruction = speakingGradingInstruction() + "Đây là một câu hỏi phụ trong cùng đề nói; hãy chấm riêng câu trả lời này dựa trên đúng câu hỏi phụ đã cho. usesWord luôn là true (không dùng trường này để quyết định đúng sai).";
+  const instruction = speakingGradingInstruction(payload.level) + "Đây là một câu hỏi phụ trong cùng đề nói; hãy chấm riêng câu trả lời này dựa trên đúng câu hỏi phụ đã cho. usesWord luôn là true (không dùng trường này để quyết định đúng sai).";
   const result = await callAi(env, instruction, body, answer, SENTENCE_CHECK_SCHEMA);
   if (result instanceof Response) return result;
   const responseBody = {
@@ -985,6 +1136,75 @@ async function writingCheck(request, env) {
   await writeAiCache(env, cacheKey, responseBody);
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
+function examGradeInstruction(level) {
+  return `Chấm bài thi thử tiếng Đức ở trình độ ${normalizeAiLevel(level)}. ${levelGuidance(level)} Dữ liệu gửi kèm ở note là một mảng JSON gồm các item cần chấm, theo thứ tự. Mỗi item có: id, taskType (rewrite/cards/writing/speaking/planning), prompt là đề bằng tiếng Đức, hints là các ý gợi ý, answer là câu trả lời tiếng Đức của bạn, maxScore là điểm tối đa, và có thể có reference là đáp án mẫu. Trả về đúng một mảng grades có cùng số lượng và cùng thứ tự với items. Với mỗi item: score là số nguyên từ 0 tới maxScore, đánh giá theo 6 tiêu chí: ngữ pháp (Grammatik), từ vựng (Wortschatz), chính tả (Rechtschreibung), cấu trúc (Struktur), hoàn thành nhiệm vụ (Aufgabenerfüllung) và giao tiếp (Kommunikation). Với taskType speaking hoặc planning, khi có dữ liệu âm thanh thì mới xét thêm phát âm, độ trôi chảy và phản xạ; nếu chỉ có văn bản thì KHÔNG trừ điểm vì thiếu âm thanh và ghi rõ điều đó trong explanation. correct là true khi bạn hoàn thành đúng nhiệm vụ và đạt ít nhất 60% maxScore. errors là mảng các lỗi cụ thể tìm được, mỗi lỗi một chuỗi ngắn; nếu không có lỗi thì trả mảng rỗng. explanation là nhận xét tiếng Việt tối đa 4 câu, chỉ rõ lỗi đúng của bạn, LUÔN gọi người làm bài là 'bạn', tuyệt đối không dùng 'học sinh', 'em' hay 'học viên'. corrected là câu hoặc đoạn tiếng Đức đã sửa đúng, giữ nguyên ý của bạn, không viết quá dài. reference là đáp án mẫu tiếng Đức tự nhiên đúng trình độ; nếu item đã có reference thì giữ nguyên và chỉnh sửa nhẹ nếu cần. tips là mảng tối đa 3 lời khuyên tiếng Việt ngắn gọn để bạn cải thiện. points là mảng boolean theo thứ tự hints: true nếu bạn đã đạt đúng ý đó, false nếu thiếu hoặc hiểu sai; nếu item không có hints thì trả mảng rỗng. Không trừ điểm vì dấu cách thừa trước dấu câu, chấp nhận cách diễn đạt khác nhưng đúng ý. Trả JSON thuần túy đúng schema, không markdown, không thêm câu nào ngoài JSON.`;
+}
+async function examGrade(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+  const level = normalizeAiLevel(body?.level);
+  const rawItems = Array.isArray(body?.items) ? body.items.slice(0, 4) : [];
+  if (!rawItems.length) return json({ error: "Thiếu bài cần chấm." }, 400);
+  const items = [];
+  for (const raw of rawItems) {
+    const prompt = cleanText(raw?.prompt, 700);
+    const answer = cleanText(raw?.answer, 1800);
+    if (!prompt || !answer) {
+      return json({ error: "Có bài chưa được trả lời hoặc thiếu đề bài." }, 400);
+    }
+    const maxScore = Math.min(25, Math.max(1, Math.round(Number(raw?.maxScore) || 25)));
+    const hints = Array.isArray(raw?.hints) ? raw.hints.slice(0, 6).map((item) => cleanText(item, 220)).filter(Boolean) : [];
+    items.push({
+      id: cleanText(raw?.id, 80),
+      taskType: cleanText(raw?.taskType, 30) || "speaking",
+      prompt,
+      hints,
+      answer,
+      maxScore,
+      reference: cleanText(raw?.reference, 600)
+    });
+  }
+  const payload = { level, items };
+  const cacheKey = await aiCacheKey("exam-grade-v1", payload);
+  const cached = await readAiCache(env, cacheKey);
+  if (cached) return json(cached, 200, { "x-ai-cache": "hit" });
+  if (!await allowAiRequest(request, env)) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+  const result = await callAi(
+    env,
+    examGradeInstruction(level),
+    { level, word: "Chấm bài thi thử", note: JSON.stringify(items) },
+    "",
+    EXAM_GRADE_SCHEMA,
+    1536,
+    { wordLimit: 200, noteLimit: 6e3, sentenceLimit: 100 }
+  );
+  if (result instanceof Response) return result;
+  const gradesRaw = Array.isArray(result?.grades) ? result.grades : [];
+  const responseBody = {
+    grades: items.map((item, index2) => {
+      const grade = gradesRaw[index2] || {};
+      const score = Number(grade.score);
+      const errors = Array.isArray(grade.errors) ? grade.errors.slice(0, 6).map((error) => cleanText(error, 300)).filter(Boolean) : [];
+      const tips = Array.isArray(grade.tips) ? grade.tips.slice(0, 3).map((tip) => cleanText(tip, 300)).filter(Boolean) : [];
+      const points = Array.isArray(grade.points) ? grade.points.slice(0, item.hints.length).map((point) => point === true) : [];
+      return {
+        id: item.id,
+        score: Number.isFinite(score) ? Math.min(item.maxScore, Math.max(0, Math.round(score))) : 0,
+        correct: grade.correct === true,
+        reference: cleanText(grade.reference, 600) || item.reference,
+        errors,
+        explanation: cleanText(grade.explanation, 900) || "AI chưa đưa ra nhận xét.",
+        corrected: cleanText(grade.corrected, 1600) || item.answer,
+        tips,
+        points
+      };
+    })
+  };
+  await writeAiCache(env, cacheKey, responseBody);
+  return json(responseBody, 200, { "x-ai-cache": "miss" });
+}
 const index = {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1012,6 +1232,7 @@ const index = {
       "/api/speaking/check": speakingCheck,
       "/api/writing/generate-topic": generateWritingTopic,
       "/api/writing/check": writingCheck,
+      "/api/exam/grade": examGrade,
       "/api/schedule/chat": scheduleChat
     };
     if (aiRoutes[url.pathname]) {

@@ -223,9 +223,12 @@ function copySpeakingSchedule(value) {
     : [];
   const rows = Array.isArray(value.rows)
     ? value.rows
-        .slice(0, 10)
+        .slice(0, 20)
         .map((row) => (Array.isArray(row) ? row.slice(0, 3).map((cell) => String(cell || "").trim()) : []))
         .filter((row) => row.some(Boolean))
+    : [];
+  const items = Array.isArray(value.items)
+    ? value.items.slice(0, 20).map((item) => String(item || "").trim()).filter(Boolean)
     : [];
   const slots = Array.isArray(value.slots)
     ? value.slots.slice(0, 24).map((item) => String(item || "").trim()).filter(Boolean)
@@ -244,8 +247,19 @@ function copySpeakingSchedule(value) {
   if (columns.length && slots.length && blocks.length) {
     return { caption, columns, slots, blocks };
   }
+  if (columns.length && items.length) return { caption, columns, items };
   if (columns.length && rows.length) return { caption, columns, rows };
   return undefined;
+}
+
+function copySpeakingSheets(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const sheets = {};
+  for (const side of ["A", "B"]) {
+    const sheet = copySpeakingSchedule(value[side]);
+    if (sheet) sheets[side] = sheet;
+  }
+  return Object.keys(sheets).length === 2 ? sheets : undefined;
 }
 
 function normalizeSpeakingShare(payload) {
@@ -278,6 +292,9 @@ function normalizeSpeakingShare(payload) {
       aiGenerated: Boolean(topic?.aiGenerated),
       ...(copySpeakingSchedule(topic?.schedule)
         ? { schedule: copySpeakingSchedule(topic.schedule) }
+        : {}),
+      ...(copySpeakingSheets(topic?.sheets)
+        ? { sheets: copySpeakingSheets(topic.sheets) }
         : {}),
     };
   });
@@ -360,6 +377,9 @@ export async function createSpeakingShareUrl(topics) {
       aiGenerated: Boolean(topic?.aiGenerated),
       ...(copySpeakingSchedule(topic?.schedule)
         ? { schedule: copySpeakingSchedule(topic.schedule) }
+        : {}),
+      ...(copySpeakingSheets(topic?.sheets)
+        ? { sheets: copySpeakingSheets(topic.sheets) }
         : {}),
     })),
   };

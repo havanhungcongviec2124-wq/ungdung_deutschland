@@ -16,6 +16,7 @@ const pageTitles = {
   speaking: "Luyện nói",
   "schedule-speaking": "Luyện nói · Thống nhất lịch trình",
   writing: "Luyện viết SMS và Thư",
+  test: "Làm bài Test",
   import: "Nhập hàng loạt",
   "shared-link": "Thêm bằng link chia sẻ",
   "import-preview": "Nhập hàng loạt",

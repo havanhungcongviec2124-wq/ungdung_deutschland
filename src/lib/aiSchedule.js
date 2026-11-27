@@ -1,16 +1,28 @@
 import { postAi } from "./aiSentence";
 
-// Một lượt trong hội thoại thống nhất lịch trình.
-// history gồm các lượt đã diễn ra, opener quyết định ai mở lời ở lượt đầu.
-export async function chatSchedule({ question, schedule, history = [], opener = "ai" }) {
+// Một lượt trong hội thoại Teil 3. opener/reporter là Kandidat A hoặc B;
+// history ghi rõ bên nói để AI không nhầm lịch của hai phiếu.
+export async function chatSchedule({
+  question,
+  sheets,
+  history = [],
+  userSide = "A",
+  opener = "A",
+  reporter = "A",
+  finalReport = false,
+}) {
   const result = await postAi("/api/schedule/chat", {
     question: String(question || "").trim(),
-    schedule: schedule || null,
+    sheets: sheets || null,
     history: history.slice(-12).map((item) => ({
+      side: item.side === "A" || item.side === "B" ? item.side : "A",
       role: item.role === "user" ? "user" : "ai",
       text: String(item.text || "").trim(),
     })),
-    opener: opener === "user" ? "user" : "ai",
+    userSide: userSide === "B" ? "B" : "A",
+    opener: opener === "A" || opener === "B" ? opener : "A",
+    reporter: reporter === "A" || reporter === "B" ? reporter : "A",
+    finalReport: Boolean(finalReport),
   });
 
   const message = String(result?.message || "").trim();
@@ -22,5 +34,7 @@ export async function chatSchedule({ question, schedule, history = [], opener = 
     userTranslation: String(result?.userTranslation || "").trim(),
     done: Boolean(result?.done),
     agreement: String(result?.agreement || message).trim(),
+    awaitingReport: Boolean(result?.awaitingReport),
+    reporter: result?.reporter === "A" || result?.reporter === "B" ? result.reporter : "A",
   };
 }

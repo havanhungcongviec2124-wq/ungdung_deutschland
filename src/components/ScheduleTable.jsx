@@ -94,12 +94,17 @@ export default function ScheduleTable({ schedule, compact = false }) {
     schedule.slots.length > 0 &&
     Array.isArray(schedule.blocks) &&
     schedule.blocks.length > 0;
-  if (!hasHourlyGrid && !schedule.rows?.length) return null;
+  const hasItems = Array.isArray(schedule.items) && schedule.items.length > 0;
+  if (!hasHourlyGrid && !hasItems && !schedule.rows?.length) return null;
+
+  const simpleSchedule = hasItems
+    ? { ...schedule, rows: schedule.items.map((item) => [item]) }
+    : schedule;
 
   return (
     <div className={`schedule-table-wrap ${compact ? "compact" : ""}`}>
       {schedule.caption && <div className="schedule-table-caption">{schedule.caption}</div>}
-      {hasHourlyGrid ? renderHourlyTable(schedule) : renderSimpleTable(schedule)}
+      {hasHourlyGrid ? renderHourlyTable(schedule) : renderSimpleTable(simpleSchedule)}
     </div>
   );
 }

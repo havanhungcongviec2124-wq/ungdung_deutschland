@@ -10,7 +10,15 @@ import {
   readSpeakingShareToken,
 } from "../lib/folderSharing";
 
-export function useSharing({ library, speaking, toast, setNotice, setModal, setView }) {
+export function useSharing({
+  library,
+  speaking,
+  scheduleSpeaking,
+  toast,
+  setNotice,
+  setModal,
+  setView,
+}) {
   const [shareUrl, setShareUrl] = useState("");
   const [sharedFolder, setSharedFolder] = useState(null);
   const [sharedSpeaking, setSharedSpeaking] = useState(null);
@@ -158,15 +166,35 @@ export function useSharing({ library, speaking, toast, setNotice, setModal, setV
 
   function importSharedSpeaking() {
     if (!sharedSpeaking) return;
-    const added = speaking.addBoards(sharedSpeaking.topics);
-    setView("speaking");
+    // Đề có hai phiếu A/B thuộc "Thống nhất lịch trình", đề thường thuộc "Luyện nói".
+    const scheduleTopics = sharedSpeaking.topics.filter(
+      (topic) => topic.sheets?.A && topic.sheets?.B
+    );
+    const plainTopics = sharedSpeaking.topics.filter(
+      (topic) => !(topic.sheets?.A && topic.sheets?.B)
+    );
+    const addedSchedule = scheduleTopics.length
+      ? scheduleSpeaking?.addBoards(scheduleTopics) || 0
+      : 0;
+    const addedPlain = plainTopics.length ? speaking.addBoards(plainTopics) : 0;
+    const added = addedSchedule + addedPlain;
+
+    setView(addedSchedule ? "schedule-speaking" : "speaking");
     setSharedSpeaking(null);
     setModal("");
-    toast(
-      added
-        ? `Đã thêm ${added} đề tài luyện nói vào thiết bị này.`
-        : "Các đề tài này đã có trong danh sách luyện nói."
-    );
+    if (!added) {
+      toast("Các đề tài này đã có trong danh sách luyện nói.");
+      return;
+    }
+    if (addedSchedule && addedPlain) {
+      toast(
+        `Đã thêm ${addedSchedule} đề lịch trình và ${addedPlain} đề nói vào thiết bị này.`
+      );
+    } else if (addedSchedule) {
+      toast(`Đã thêm ${addedSchedule} đề Thống nhất lịch trình vào thiết bị này.`);
+    } else {
+      toast(`Đã thêm ${addedPlain} đề tài luyện nói vào thiết bị này.`);
+    }
   }
 
   function closeSharedFolder() {

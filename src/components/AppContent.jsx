@@ -1,4 +1,5 @@
 import { CardsPage, FolderOverviewPage } from "./CardsPage";
+import ExamPage from "./ExamPage";
 import HomePage from "./HomePage";
 import ImportPage from "./ImportPage";
 import ImportPreviewPage from "./ImportPreviewPage";
@@ -19,6 +20,7 @@ export default function AppContent({
   speaking,
   scheduleSpeaking,
   writing,
+  examFlow,
   practice = { progress: {}, recordPractice: () => {} },
   actions,
 }) {
@@ -109,11 +111,11 @@ export default function AppContent({
           onRestoreHidden={scheduleSpeaking.restoreHiddenTopics}
           title="Thống nhất lịch trình"
           pageSize={12}
-          description="19 đề tài trích từ các phiếu Findet einen Termin / Wann könnt ihr euch treffen?, lịch tuần và lịch kỳ nghỉ. Đọc lịch, chọn thời gian phù hợp rồi viết câu trả lời tiếng Đức để AI chấm."
+          description="Bài Goethe A2 Teil 3 với hai phiếu A/B: bạn và AI mỗi người một lịch, ngẫu nhiên vai và lượt mở lời. Cả hai phiếu đều hiện để bạn đối chiếu; thảo luận bằng tiếng Đức rồi chốt chung một thời gian."
           levelBadge="A2 · TERMIN VEREINBAREN"
           conversation
           topicContext="Chủ đề bắt buộc: Termine vereinbaren / einen gemeinsamen Termin finden (Wann hast du Zeit? Uhrzeiten, Tagesplan, Wochenplan, Verabredungen). Câu hỏi phải là một cuộc hẹn hoặc thời gian biểu, không phải chủ đề tự do."
-          footnote="Dữ liệu đề tài lấy từ bộ ảnh Aufgabenblatt A2. Câu trả lời được gửi tới dịch vụ AI để chấm và gợi ý câu hỏi tiếp theo."
+          footnote="26 đề trích từ các cặp Aufgabenblatt A và B trong ảnh bạn cung cấp: đề lịch chốt khung giờ, đề thảo luận chốt chung một hoạt động. Cả hai phiếu được hiển thị, có nhãn rõ phiếu của bạn và của AI; AI vẫn đóng vai theo phiếu của mình và hội thoại được gửi tới dịch vụ AI để phản hồi bằng tiếng Đức."
           practice={practice.progress.schedule || {}}
           onPractice={(id) => practice.recordPractice("schedule", id)}
         />
@@ -133,6 +135,10 @@ export default function AppContent({
           practice={practice.progress.writing || {}}
           onPractice={(id) => practice.recordPractice("writing", id)}
         />
+      )}
+
+      {view === "test" && examFlow && (
+        <ExamPage flow={examFlow} onSpeak={library.speakGerman} actions={actions} />
       )}
 
       {view === "import" && (
