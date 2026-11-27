@@ -8,6 +8,7 @@ import SentencePage from "./SentencePage";
 import SharedLinkPage from "./SharedLinkPage";
 import SpeakingPage from "./SpeakingPage";
 import StudyPage from "./StudyPage";
+import WritingPage from "./WritingPage";
 
 export default function AppContent({
   view,
@@ -17,6 +18,8 @@ export default function AppContent({
   sharing,
   speaking,
   scheduleSpeaking,
+  writing,
+  practice = { progress: {}, recordPractice: () => {} },
   actions,
 }) {
   const currentCard = study.studyCards[study.studyIndex];
@@ -88,6 +91,8 @@ export default function AppContent({
           onResetTopic={speaking.resetTopic}
           hiddenCount={speaking.hidden.length}
           onRestoreHidden={speaking.restoreHiddenTopics}
+          practice={practice.progress.speaking || {}}
+          onPractice={(id) => practice.recordPractice("speaking", id)}
         />
       )}
 
@@ -109,6 +114,24 @@ export default function AppContent({
           conversation
           topicContext="Chủ đề bắt buộc: Termine vereinbaren / einen gemeinsamen Termin finden (Wann hast du Zeit? Uhrzeiten, Tagesplan, Wochenplan, Verabredungen). Câu hỏi phải là một cuộc hẹn hoặc thời gian biểu, không phải chủ đề tự do."
           footnote="Dữ liệu đề tài lấy từ bộ ảnh Aufgabenblatt A2. Câu trả lời được gửi tới dịch vụ AI để chấm và gợi ý câu hỏi tiếp theo."
+          practice={practice.progress.schedule || {}}
+          onPractice={(id) => practice.recordPractice("schedule", id)}
+        />
+      )}
+
+      {view === "writing" && (
+        <WritingPage
+          boards={writing.allBoards}
+          onAdd={actions.openWritingAdd}
+          onSaveAiTopic={writing.addAiTopic}
+          onRemove={writing.removeBoard}
+          onSaveTopic={writing.updateTopic}
+          onResetTopic={writing.resetTopic}
+          hiddenCount={writing.hidden.length}
+          onRestoreHidden={writing.restoreHiddenTopics}
+          pageSize={20}
+          practice={practice.progress.writing || {}}
+          onPractice={(id) => practice.recordPractice("writing", id)}
         />
       )}
 

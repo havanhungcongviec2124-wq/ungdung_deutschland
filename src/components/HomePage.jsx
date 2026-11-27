@@ -77,7 +77,7 @@ export default function HomePage({
       </div>
 
       <div className="stats-grid">
-        <Stat icon={BookOpen} label="Tổng số thẻ" value={cards.length} tint="purple" />
+        <Stat icon={BookOpen} label="Tổng số thẻ" value={cards.length} tint="blue" />
         <Stat icon={Folder} label="Thư mục" value={folders.length} tint="green" />
         <Stat icon={CheckCircle2} label="Đã ghi nhớ" value={known} tint="orange" />
         <Stat icon={Brain} label="Tiến độ ghi nhớ" value={`${percent}%`} tint="pink" />

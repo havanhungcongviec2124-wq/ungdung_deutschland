@@ -50,27 +50,19 @@ export default function StudyPage({
         </strong>
       </div>
 
-      {isQuiz && (
-        <StudyCardNav
-          onPrev={onPrev}
-          onNext={onOther}
-          prevDisabled={index === 0}
-          nextDisabled={total <= 1}
-        />
-      )}
-
       <div className="progress-track">
         <div style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
-      <div className="study-content">
+      <div className={`study-content ${isQuiz ? "study-quiz" : "study-flashcard"}`}>
         {isQuiz ? (
           /* ================= QUIZ MODE ================= */
           <>
-            <div className="eyebrow">CHỌN ĐÁP ÁN ĐÚNG</div>
+            <div className="study-stage">
+              <div className="eyebrow">CHỌN ĐÁP ÁN ĐÚNG</div>
 
-            {/* Prompt */}
-            <div className="quiz-prompt">
+              {/* Prompt */}
+              <div className="quiz-prompt">
               <span className="vocab-language">{label}</span>
               <div className="quiz-question-row">
                 <strong>{question}</strong>
@@ -88,10 +80,12 @@ export default function StudyPage({
               {mode === "de-to-vi" && card.plural && (
                 <small>{card.plural}</small>
               )}
+              </div>
             </div>
 
-            {/* Options */}
-            <div className="quiz-options">
+            <div className="study-panel">
+              {/* Options */}
+              <div className="quiz-options">
               {options.map((option) => {
                 const isCorrect =
                   normalizeQuizAnswer(option) ===
@@ -158,16 +152,18 @@ export default function StudyPage({
               onClick={onContinue}
             >
               {index === total - 1 ? "Xem kết quả" : "Câu tiếp theo"}{" "}
-              <ChevronRight size={17} />
-            </button>
+                <ChevronRight size={17} />
+              </button>
+            </div>
           </>
         ) : (
           /* ================= FLASHCARD MODE ================= */
           <>
-            <div className="eyebrow">HÃY NHỚ LẠI TỪ NÀY</div>
+            <div className="study-stage">
+              <div className="eyebrow">HÃY NHỚ LẠI TỪ NÀY</div>
 
-            {/* Flip card */}
-            <div
+              {/* Flip card */}
+              <div
               className={`flip-card ${flipped ? "is-flipped" : ""}`}
               onClick={() => setFlipped((value) => !value)}
               role="button"
@@ -210,29 +206,41 @@ export default function StudyPage({
                   </span>
                 </div>
               </div>
+              </div>
             </div>
 
-            <p className="study-instruction">
-              {flipped
-                ? "Bạn có nhớ từ này không?"
-                : "Hãy thử nhớ nghĩa trước khi lật thẻ."}
-            </p>
+            <div className="study-panel">
+              <p className="study-instruction">
+                {flipped
+                  ? "Bạn có nhớ từ này không?"
+                  : "Hãy thử nhớ nghĩa trước khi lật thẻ."}
+              </p>
 
-            {/* Answer actions */}
-            <div className="answer-actions">
-              <button className="answer-no" onClick={() => onAnswer(false)}>
-                <XCircle size={19} /> Chưa thuộc
-              </button>
-              <button className="answer-yes" onClick={() => onAnswer(true)}>
-                <CheckCircle2 size={19} /> Đã thuộc
-              </button>
-            </div>
+              {/* Answer actions */}
+              <div className="answer-actions">
+                <button className="answer-no" onClick={() => onAnswer(false)}>
+                  <XCircle size={19} /> Chưa thuộc
+                </button>
+                <button className="answer-yes" onClick={() => onAnswer(true)}>
+                  <CheckCircle2 size={19} /> Đã thuộc
+                </button>
+              </div>
 
-            <div className="study-keyboard">
-              Bạn có thể nhấn vào thẻ để lật mặt sau.
+              <div className="study-keyboard">
+                Bạn có thể nhấn vào thẻ để lật mặt sau.
+              </div>
             </div>
           </>
         )}
+
+        <StudyCardNav
+          onPrev={onPrev}
+          onNext={onOther}
+          prevLabel={isQuiz ? "Câu trước" : "Thẻ trước"}
+          nextLabel={isQuiz ? "Câu khác" : "Thẻ tiếp"}
+          prevDisabled={index === 0}
+          nextDisabled={total <= 1}
+        />
       </div>
     </div>
   );

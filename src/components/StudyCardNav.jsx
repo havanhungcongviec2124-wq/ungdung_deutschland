@@ -1,25 +1,32 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-export default function StudyCardNav({ onPrev, onNext, prevDisabled = false, nextDisabled = false }) {
+export default function StudyCardNav({
+  onPrev,
+  onNext,
+  prevLabel = "Câu trước",
+  nextLabel = "Câu khác",
+  prevDisabled = false,
+  nextDisabled = false,
+}) {
   return (
     <div className="study-card-nav">
       <button
         type="button"
-        className="btn-secondary"
+        className="btn-secondary nav-prev"
         onClick={onPrev}
         disabled={prevDisabled}
-        title="Quay lại câu trước"
+        title={prevLabel}
       >
-        <ArrowLeft size={15} /> Quay lại câu trước
+        <ArrowLeft size={17} /> {prevLabel}
       </button>
       <button
         type="button"
-        className="btn-secondary"
+        className="btn-secondary nav-next"
         onClick={onNext}
         disabled={nextDisabled}
-        title="Sang câu khác"
+        title={nextLabel}
       >
-        Sang câu khác <ArrowRight size={15} />
+        {nextLabel} <ArrowRight size={17} />
       </button>
     </div>
   );

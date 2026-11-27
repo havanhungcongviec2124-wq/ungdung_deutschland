@@ -153,37 +153,33 @@ export default function QuestionPage({
         </strong>
       </div>
 
-      <StudyCardNav
-        onPrev={onPrev}
-        onNext={onOther}
-        prevDisabled={index === 0}
-        nextDisabled={total <= 1}
-      />
-
       <div className="progress-track">
         <div style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
       <div className="study-content sentence-content">
-        <div className="eyebrow">TRẢ LỜI CÂU HỎI TỪ TỪ NÀY</div>
+        <div className="study-stage">
+          <div className="eyebrow">TRẢ LỜI CÂU HỎI TỪ TỪ NÀY</div>
 
-        <div className="sentence-word-card">
-          <div className="quiz-question-row">
-            <strong>{card.front}</strong>
-            <button
-              className="voice-button"
-              onClick={() => onSpeak(card.front)}
-              title={`Phát âm ${card.front}`}
-              aria-label={`Phát âm ${card.front}`}
-            >
-              <Volume2 size={18} />
-            </button>
+          <div className="sentence-word-card">
+            <div className="quiz-question-row">
+              <strong>{card.front}</strong>
+              <button
+                className="voice-button"
+                onClick={() => onSpeak(card.front)}
+                title={`Phát âm ${card.front}`}
+                aria-label={`Phát âm ${card.front}`}
+              >
+                <Volume2 size={18} />
+              </button>
+            </div>
+            {card.plural && <small className="sentence-plural">{card.plural}</small>}
+            <span className="vocab-language">{card.back}</span>
           </div>
-          {card.plural && <small className="sentence-plural">{card.plural}</small>}
-          <span className="vocab-language">{card.back}</span>
         </div>
 
-        <div className="sentence-tabs" role="tablist">
+        <div className="study-panel">
+          <div className="sentence-tabs" role="tablist">
           <button
             type="button"
             role="tab"
@@ -350,10 +346,18 @@ export default function QuestionPage({
           </div>
         )}
 
-        <p className="sentence-note">
-          Câu hỏi và đáp án do AI tạo theo trình độ {activeLevel}. Phát âm dùng giọng có sẵn trên
-          thiết bị; câu hỏi và câu trả lời của bạn được gửi tới dịch vụ AI để chấm.
-        </p>
+          <p className="sentence-note">
+            Câu hỏi và đáp án do AI tạo theo trình độ {activeLevel}. Phát âm dùng giọng có sẵn trên
+            thiết bị; câu hỏi và câu trả lời của bạn được gửi tới dịch vụ AI để chấm.
+          </p>
+        </div>
+
+        <StudyCardNav
+          onPrev={onPrev}
+          onNext={onOther}
+          prevDisabled={index === 0}
+          nextDisabled={total <= 1}
+        />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import SharedSpeakingModal from "./modals/SharedSpeakingModal";
 import SpeakingAddModal from "./modals/SpeakingAddModal";
 import SpeakingOverviewModal from "./modals/SpeakingOverviewModal";
 import StudySetupModal from "./modals/StudySetupModal";
+import WritingAddModal from "./modals/WritingAddModal";
 
 export default function AppModals({
   modal,
@@ -19,6 +20,8 @@ export default function AppModals({
   sharing,
   speaking,
   scheduleSpeaking,
+  writing,
+  practice = {},
 }) {
   const close = () => setModal("");
 
@@ -143,6 +146,7 @@ export default function AppModals({
           onSaveTopic={speaking.updateTopic}
           onResetTopic={speaking.resetTopic}
           onClose={close}
+          practice={practice.speaking}
         />
       )}
 
@@ -165,7 +169,29 @@ export default function AppModals({
           hiddenCount={scheduleSpeaking.hidden.length}
           onRestoreHidden={scheduleSpeaking.restoreHiddenTopics}
           onClose={close}
+          practice={practice.schedule}
           scheduleMode
+        />
+      )}
+
+      {modal === "writing-add" && (
+        <WritingAddModal
+          onAddTopics={writing.addBoards}
+          onClose={close}
+        />
+      )}
+
+      {modal === "writing-overview" && (
+        <SpeakingOverviewModal
+          boards={writing.allBoards}
+          onSaveTopic={writing.updateTopic}
+          onResetTopic={writing.resetTopic}
+          onRemoveTopic={writing.removeBoard}
+          hiddenCount={writing.hidden.length}
+          onRestoreHidden={writing.restoreHiddenTopics}
+          onClose={close}
+          practice={practice.writing}
+          writingMode
         />
       )}
 

@@ -40,6 +40,13 @@ export function useAppInstall({ toast, setModal }) {
     try {
       const registration = await navigator.serviceWorker?.getRegistration();
       if (registration) await registration.update();
+      // Dọn cache cũ để logo, favicon, CSS/JS mới được tải ngay sau khi bấm cập nhật.
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(
+          keys.filter(key => key.startsWith("wortkarte-")).map(key => caches.delete(key))
+        );
+      }
       window.location.reload();
     } catch (error) {
       console.error("Không thể cập nhật ứng dụng:", error);

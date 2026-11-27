@@ -51,7 +51,31 @@ function SpeakingFeedback({ result }) {
   );
 }
 
-function SpeakingBoard({ board, onBack, onSpeak, actions, onKeep, onDiscard, levelBadge, conversation }) {
+function PracticeBadge({ count }) {
+  const times = Number(count) || 0;
+  if (!times) return null;
+  return (
+    <span
+      className="practice-badge"
+      title={`Đã làm ${times} lần${times > 1 ? `, làm lại ${times - 1} lần` : ""}`}
+    >
+      <CheckCircle2 size={11} /> Đã làm · {times} lần
+      {times > 1 && <span className="practice-redo"> · làm lại {times - 1}</span>}
+    </span>
+  );
+}
+
+function SpeakingBoard({
+  board,
+  onBack,
+  onSpeak,
+  actions,
+  onKeep,
+  onDiscard,
+  onPractice,
+  levelBadge,
+  conversation,
+}) {
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +107,7 @@ function SpeakingBoard({ board, onBack, onSpeak, actions, onKeep, onDiscard, lev
       const data = await startSpeaking(board, answer);
       setResult({ correct: data.correct, corrected: data.corrected, explanation: data.explanation });
       setFollowUps(data.followUps);
+      onPractice?.(board.id);
     } catch (err) {
       setError(err?.message || "Không thể chấm điểm. Hãy thử lại.");
     } finally {
@@ -172,7 +197,7 @@ function SpeakingBoard({ board, onBack, onSpeak, actions, onKeep, onDiscard, lev
         )}
 
       {conversation ? (
-        <ScheduleDialogue board={board} onSpeak={onSpeak} />
+        <ScheduleDialogue board={board} onSpeak={onSpeak} onPractice={onPractice} />
       ) : (
         <>
       <div className="speaking-form">
@@ -297,6 +322,8 @@ export default function SpeakingPage({
   onResetTopic,
   hiddenCount = 0,
   onRestoreHidden,
+  practice = {},
+  onPractice,
   pageSize = SPEAKING_PAGE_SIZE,
   title = "Luyện nói",
   description = "49 đề tài Goethe A2 có sẵn bên dưới. Chọn đề bất kỳ, tự trả lời bằng tiếng Đức rồi để AI chấm điểm và hỏi tiếp.",
@@ -445,6 +472,7 @@ export default function SpeakingPage({
         onClose={() => setView("list")}
         inline
         headerActions={actions}
+        practice={practice}
       />
     );
   }
@@ -457,7 +485,6 @@ export default function SpeakingPage({
           board={aiDraft}
           onBack={() => setView("list")}
           onSpeak={onSpeak}
-          actions={actions}
           onKeep={handleKeepAiTopic}
           onDiscard={() => setConfirmDiscard(true)}
           levelBadge={levelBadge}
@@ -483,7 +510,7 @@ export default function SpeakingPage({
         board={activeBoard}
         onBack={() => setActiveId("")}
         onSpeak={onSpeak}
-        actions={actions}
+        onPractice={onPractice}
         levelBadge={levelBadge}
         conversation={conversation}
       />
@@ -580,6 +607,7 @@ export default function SpeakingPage({
                 <Trash2 size={15} />
               </button>
             </div>
+            <PracticeBadge count={practice[board.id]} />
             <strong>{board.question}</strong>
             <ul>
               {board.hints.map((hint, hintIndex) => (

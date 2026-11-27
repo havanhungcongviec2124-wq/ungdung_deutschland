@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, CalendarClock, CheckCircle2, Layers3, Link2, Mic, Upload } from "lucide-react";
+import { BookOpen, CalendarClock, CheckCircle2, Layers3, Link2, Mic, PenLine, Upload } from "lucide-react";
 import AppContent from "./components/AppContent";
 import AppModals from "./components/AppModals";
 import AppShell from "./components/AppShell";
@@ -7,10 +7,12 @@ import { useAppInstall } from "./hooks/useAppInstall";
 import { useImport } from "./hooks/useImport";
 import { useLibrary } from "./hooks/useLibrary";
 import { useNotice } from "./hooks/useNotice";
+import { usePracticeProgress } from "./hooks/usePracticeProgress";
 import { useScheduleSpeaking } from "./hooks/useScheduleSpeaking";
 import { useSharing } from "./hooks/useSharing";
 import { useSpeaking } from "./hooks/useSpeaking";
 import { useStudy } from "./hooks/useStudy";
+import { useWriting } from "./hooks/useWriting";
 import { readLocalData } from "./lib/appData";
 
 const NAV_ITEMS = [
@@ -18,6 +20,7 @@ const NAV_ITEMS = [
   { id: "cards", label: "Thẻ từ vựng", icon: BookOpen },
   { id: "speaking", label: "Luyện nói", icon: Mic },
   { id: "schedule-speaking", label: "Thống nhất lịch trình", icon: CalendarClock },
+  { id: "writing", label: "Luyện viết SMS và Thư", icon: PenLine },
   { id: "import", label: "Nhập hàng loạt", icon: Upload },
   { id: "shared-link", label: "Thêm bằng link chia sẻ", icon: Link2 },
 ];
@@ -34,6 +37,8 @@ export default function App() {
   const importFlow = useImport({ library, toast, setNotice, setModal, setView });
   const speaking = useSpeaking();
   const scheduleSpeaking = useScheduleSpeaking();
+  const writing = useWriting();
+  const practice = usePracticeProgress();
   const sharing = useSharing({ library, speaking, toast, setNotice, setModal, setView });
   const install = useAppInstall({ toast, setModal });
 
@@ -57,6 +62,8 @@ export default function App() {
     openSpeakingOverview: () => setModal("speaking-overview"),
     openScheduleAdd: () => setModal("schedule-speaking-add"),
     openScheduleOverview: () => setModal("schedule-speaking-overview"),
+    openWritingAdd: () => setModal("writing-add"),
+    openWritingOverview: () => setModal("writing-overview"),
   };
 
   return (
@@ -93,6 +100,8 @@ export default function App() {
           sharing={sharing}
           speaking={speaking}
           scheduleSpeaking={scheduleSpeaking}
+          writing={writing}
+          practice={practice}
           actions={actions}
         />
       </AppShell>
@@ -105,6 +114,8 @@ export default function App() {
         sharing={sharing}
         speaking={speaking}
         scheduleSpeaking={scheduleSpeaking}
+        writing={writing}
+        practice={practice.progress}
       />
 
       {notice && (

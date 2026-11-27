@@ -3,7 +3,6 @@ import {
   ChevronRight,
   Download,
   HardDrive,
-  Languages,
   Link2,
   Menu,
   Pencil,
@@ -16,6 +15,7 @@ const pageTitles = {
   home: "Tổng quan",
   speaking: "Luyện nói",
   "schedule-speaking": "Luyện nói · Thống nhất lịch trình",
+  writing: "Luyện viết SMS và Thư",
   import: "Nhập hàng loạt",
   "shared-link": "Thêm bằng link chia sẻ",
   "import-preview": "Nhập hàng loạt",
@@ -52,7 +52,7 @@ export default function AppShell({
         {/* Brand */}
         <div className="brand">
           <div className="brand-mark">
-            <Languages size={21} />
+            <img src={`/logo.png?v=${__APP_VERSION__}`} alt="" />
           </div>
           <span>
             wort<span className="brand-accent">karte</span>
@@ -227,7 +227,7 @@ function FolderListItem({
           >
             <span
               className="folder-dot"
-              style={{ background: selected ? "#13a88a" : "#6d5dfc" }}
+              style={{ background: selected ? "#13a88a" : "#2d57f1" }}
             />
           </button>
           <button

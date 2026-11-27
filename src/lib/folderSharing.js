@@ -208,7 +208,9 @@ function normalizeFolderShare(payload) {
     type: "folder",
     folder: {
       name: payload.folder.name.trim(),
-      color: /^#[0-9a-f]{6}$/i.test(payload.folder.color) ? payload.folder.color : "#6d5dfc",
+      color: /^#[0-9a-f]{6}$/i.test(payload.folder.color)
+        ? (payload.folder.color.toLowerCase() === "#6d5dfc" ? "#2d57f1" : payload.folder.color)
+        : "#2d57f1",
     },
     cards,
   };

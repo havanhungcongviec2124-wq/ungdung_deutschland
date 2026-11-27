@@ -1,4 +1,4 @@
-export const colors = ["#6d5dfc", "#13a88a", "#f59e0b", "#ec6b8b", "#3987dc"];
+export const colors = ["#2d57f1", "#13a88a", "#f59e0b", "#ec6b8b", "#3987dc"];
 export const STORAGE_KEY = "wortkarte.local.v1";
 export const sampleFolderId = "sample-german";
 const sampleCardIds = new Set(["s1", "s2", "s3", "s4", "s5"]);
@@ -60,7 +60,12 @@ export function readLocalData() {
     const cards = data.cards.filter(card => !sampleCardIds.has(card.id));
     const retainedSampleFolderCards = cards.some(card => card.folder_id === sampleFolderId);
     const previousSampleFolder = data.folders.find(folder => folder.id === sampleFolderId);
-    const folders = data.folders.filter(folder => folder.id !== sampleFolderId);
+    const folders = data.folders
+      .filter(folder => folder.id !== sampleFolderId)
+      // Thay màu tím cũ bằng xanh theo logo mới, kể cả thư mục đã lưu từ trước.
+      .map(folder => folder.color?.toLowerCase() === "#6d5dfc"
+        ? { ...folder, color: colors[0] }
+        : folder);
     if (retainedSampleFolderCards) {
       folders.push(previousSampleFolder
         ? { ...previousSampleFolder, name: "Từ vựng của tôi" }

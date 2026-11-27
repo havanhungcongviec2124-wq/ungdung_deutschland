@@ -15,7 +15,9 @@ export default function SpeakingOverviewModal({
   onClose,
   inline = false,
   headerActions = null,
+  practice = {},
   scheduleMode = false,
+  writingMode = false,
 }) {
   const allTopics = useMemo(() => {
     const seen = new Set();
@@ -148,16 +150,18 @@ export default function SpeakingOverviewModal({
   const content = (
     <div className="speaking-modal-body">
         <p className="modal-hint">
-          Tất cả {allTopics.length} đề tài từ 49 chủ đề Goethe A2 và các đề tài bạn đã thêm được gộp
+          {writingMode
+            ? `Tất cả ${allTopics.length} đề viết SMS/E-Mail từ bộ NOI VIET A2 và các đề bạn tự thêm được gộp tại đây (đã bỏ trùng). Bấm biểu tượng bút chì để sửa đề.`
+            : `Tất cả ${allTopics.length} đề tài từ 49 chủ đề Goethe A2 và các đề tài bạn đã thêm được gộp
           tại đây (đã bỏ trùng). Bấm biểu tượng bút chì để sửa đề, sau đó chọn đề và tạo link chia
-          sẻ.
+          sẻ.`}
         </p>
 
         <input
           className="speaking-search"
           type="search"
           value={query}
-          placeholder="Tìm chủ đề, ví dụ: Sonntag, Urlaub..."
+          placeholder={writingMode ? "Tìm đề, ví dụ: Entschuldigen, E-Mail..." : "Tìm chủ đề, ví dụ: Sonntag, Urlaub..."}
           onChange={(event) => setQuery(event.target.value)}
         />
 
@@ -199,6 +203,9 @@ export default function SpeakingOverviewModal({
                   <span className="speaking-topic-text">
                     <strong>{topic.question}</strong>
                     <small>
+                      {Number(practice[topic.id]) > 0
+                        ? `Đã làm ${practice[topic.id]} lần · `
+                        : ""}
                       {topic.aiGenerated ? "(đề do AI tạo) · " : ""}
                       {topic.edited ? "Đã sửa · " : ""}
                       {(topic.hints || []).join(" · ")}
@@ -261,7 +268,11 @@ export default function SpeakingOverviewModal({
         {error && <p className="form-error">{error}</p>}
 
         <div className="speaking-modal-actions">
-          <span>Người nhận link có thể thêm đề tài vào ứng dụng của họ.</span>
+          <span>
+            {writingMode
+              ? "Đề thư viện có thể khôi phục lại từ bảng này sau khi xóa."
+              : "Người nhận link có thể thêm đề tài vào ứng dụng của họ."}
+          </span>
           <div className="speaking-bulk-actions">
             {hiddenCount > 0 && onRestoreHidden && (
               <button type="button" className="btn-ghost" onClick={onRestoreHidden}>
@@ -276,19 +287,21 @@ export default function SpeakingOverviewModal({
             >
               <Trash2 size={14} /> Xóa đã chọn
             </button>
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={sharing || !selectedIds.size}
-              onClick={handleCreateLink}
-            >
-              {sharing ? <Loader2 size={15} className="spin" /> : <Share2 size={15} />}
-              {sharing ? "Đang tạo link..." : "Tạo link chia sẻ"}
-            </button>
+            {!writingMode && (
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={sharing || !selectedIds.size}
+                onClick={handleCreateLink}
+              >
+                {sharing ? <Loader2 size={15} className="spin" /> : <Share2 size={15} />}
+                {sharing ? "Đang tạo link..." : "Tạo link chia sẻ"}
+              </button>
+            )}
           </div>
         </div>
 
-        {shareUrl && (
+        {!writingMode && shareUrl && (
           <div className="share-folder-content speaking-share-result">
             <p>
               Link chứa bản sao của {allTopics.filter((topic) => selectedIds.has(topic.id)).length} đề
@@ -344,7 +357,7 @@ export default function SpeakingOverviewModal({
   }
 
   return (
-    <Modal title="Tổng hợp đề tài luyện nói" onClose={onClose}>
+    <Modal title={writingMode ? "Tổng hợp đề viết SMS và Thư" : "Tổng hợp đề tài luyện nói"} onClose={onClose}>
       {content}
     </Modal>
   );

@@ -3,10 +3,17 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+// Thay đổi nội dung file logo là mọi URL logo/favicon đổi theo, không cần sửa tay từng lần deploy.
+const appVersion = createHash("sha1")
+  .update(readFileSync(resolve(root, "img/logo.png")))
+  .digest("hex")
+  .slice(0, 10);
 const ocrAssets = new Map([
   ["/ocr/worker.min.js", resolve(root, "node_modules/tesseract.js/dist/worker.min.js")],
   ["/ocr/tesseract-core-simd-lstm.wasm.js", resolve(root, "node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js")],
@@ -59,4 +66,16 @@ function localOcrAssets() {
   };
 }
 
-export default defineConfig({ plugins: [react(), tailwindcss(), localOcrAssets(), cloudflare()] });
+function appVersionHtml() {
+  return {
+    name: "app-version-html",
+    transformIndexHtml(html) {
+      return html.replace(/__APP_VERSION__/g, appVersion);
+    },
+  };
+}
+
+export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
+  plugins: [react(), tailwindcss(), localOcrAssets(), appVersionHtml(), cloudflare()],
+});

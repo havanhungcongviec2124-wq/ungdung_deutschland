@@ -35,7 +35,7 @@ export default function ResultPage({
           <span>Cần ôn lại</span>
         </div>
         <div>
-          <Layers3 color="#6d5dfc" />
+          <Layers3 color="#2d57f1" />
           <strong>{totalCount}</strong>
           <span>Tổng số từ</span>
         </div>

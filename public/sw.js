@@ -1,7 +1,8 @@
-const CACHE_NAME = "wortkarte-shell-v3";
+const CACHE_NAME = "wortkarte-shell-v10";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/logo.png",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -55,6 +56,28 @@ self.addEventListener("fetch", event => {
           return response;
         })
         .catch(async () => (await caches.match(request)) || (await caches.match("/index.html")))
+    );
+    return;
+  }
+
+  // Logo/favicon/manifest luôn lấy bản mới khi có mạng, để bấm "Cập nhật" là đổi theo ngay.
+  const isBrandAsset =
+    url.pathname === "/logo.png" ||
+    url.pathname === "/manifest.webmanifest" ||
+    url.pathname.startsWith("/icons/");
+  if (isBrandAsset) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response.ok) {
+            const copy = response.clone();
+            event.waitUntil(
+              caches.open(CACHE_NAME).then(cache => cache.put(request, copy))
+            );
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

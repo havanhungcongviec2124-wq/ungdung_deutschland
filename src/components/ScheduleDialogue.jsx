@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, RotateCcw, Volume2 } from "lucide-react";
 import { chatSchedule } from "../lib/aiSchedule";
 
-export default function ScheduleDialogue({ board, onSpeak }) {
+export default function ScheduleDialogue({ board, onSpeak, onPractice }) {
   // Ai mở lời là ngẫu nhiên cho mỗi lần mở đề.
   const [opener, setOpener] = useState(() => (Math.random() < 0.5 ? "ai" : "user"));
   const [session, setSession] = useState(0);
@@ -13,6 +13,11 @@ export default function ScheduleDialogue({ board, onSpeak }) {
   const [done, setDone] = useState(false);
   const [agreement, setAgreement] = useState("");
   const bottomRef = useRef(null);
+  const onPracticeRef = useRef(onPractice);
+
+  useEffect(() => {
+    onPracticeRef.current = onPractice;
+  }, [onPractice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +43,7 @@ export default function ScheduleDialogue({ board, onSpeak }) {
         if (reply.done) {
           setDone(true);
           setAgreement(reply.agreement);
+          onPracticeRef.current?.(board.id);
         }
       })
       .catch((err) => {
@@ -78,6 +84,7 @@ export default function ScheduleDialogue({ board, onSpeak }) {
       if (reply.done) {
         setDone(true);
         setAgreement(reply.agreement);
+        onPracticeRef.current?.(board.id);
       }
     } catch (err) {
       setMessages(previous);

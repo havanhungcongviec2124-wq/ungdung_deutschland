@@ -36,7 +36,7 @@ export default function ImportPage({
       <div className="import-methods">
         {/* --- Paste text --- */}
         <div className="import-card">
-          <div className="import-card-icon purple-bg">
+          <div className="import-card-icon blue-bg">
             <FileText size={22} />
           </div>
           <h3>Dán văn bản</h3>
