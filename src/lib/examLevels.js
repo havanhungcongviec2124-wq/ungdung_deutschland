@@ -51,7 +51,7 @@ export const EXAM_LEVELS = [
     summary: "4 kỹ năng, Sprechen 3 Teil",
     structure: [
       "Grammatik · 25 câu (điểm riêng)",
-      "Hören · 15 câu / Lesen · 15 câu",
+      "Hören · 20 câu / Lesen · 20 câu (mỗi kỹ năng /25)",
       "Schreiben · 1 SMS + 1 E-Mail",
       "Sprechen · Teil 1 + Teil 2 + Teil 3",
     ],
@@ -63,8 +63,8 @@ export const EXAM_LEVELS = [
     summary: "Cấu trúc Goethe B1 rút gọn",
     structure: [
       "Grammatik · 25 câu (điểm riêng)",
-      "Hören · 3 Teil / 15 câu",
-      "Lesen · 3 Teil / 15 câu",
+      "Hören · 3 Teil / 20 câu",
+      "Lesen · 20 câu (mỗi kỹ năng /25)",
       "Schreiben · 2 nhiệm vụ",
       "Sprechen · 3 Teil",
     ],
@@ -76,8 +76,8 @@ export const EXAM_LEVELS = [
     summary: "Cấu trúc Goethe B1, yêu cầu cao hơn",
     structure: [
       "Grammatik · 25 câu (điểm riêng)",
-      "Hören · 3 Teil / 15 câu",
-      "Lesen · 3 Teil / 15 câu",
+      "Hören · 3 Teil / 20 câu",
+      "Lesen · 20 câu (mỗi kỹ năng /25)",
       "Schreiben · 2 nhiệm vụ nâng cao",
       "Sprechen · 3 Teil nâng cao",
     ],
@@ -106,7 +106,11 @@ export function isB1Level(id) {
   return id === "B1.1" || id === "B1.2";
 }
 
-// Quy đổi 15 câu Hören/Lesen về thang 25 điểm.
+// Từ A2.2 trở đi Hören và Lesen có 20 câu; A2.1 giữ 15 câu. Cả hai vẫn quy về /25.
+export function skillQuestionCount(levelId) {
+  return needsSpeakingMinimum(levelId) ? 20 : 15;
+}
+
 export function countToScore(correct, count, total = SKILL_TOTAL) {
   if (!count) return 0;
   return Math.max(0, Math.min(total, Math.round((Number(correct) || 0) * total / count)));
@@ -145,13 +149,23 @@ export function evaluateExam(levelId, scores) {
     .filter(([, value]) => value < 15)
     .map(([name]) => name);
   const speakingFailed = needsSpeakingMinimum(levelId) && (Number(scores.sprechen) || 0) < SPEAKING_MIN_FROM_A22;
-  const passed = total >= SKILL_PASS_TOTAL && !speakingFailed;
+  const grammarFailed = !grammar.passed;
+  const passed = total >= SKILL_PASS_TOTAL && !speakingFailed && !grammarFailed;
 
-  let reason = `Tổng 4 kỹ năng ${total}/100 đạt ngưỡng ${SKILL_PASS_TOTAL}/100.`;
-  if (speakingFailed) {
+  let reason = `Tổng 4 kỹ năng ${total}/100 đạt ngưỡng ${SKILL_PASS_TOTAL}/100 và Grammatik đạt ${grammar.correct}/25.`;
+  if (speakingFailed && grammarFailed) {
+    reason = `Tổng ${total}/100 nhưng Grammatik chỉ ${grammar.correct}/25 (cần ${GRAMMAR_PASS}/25) và Sprechen chỉ ${
+      Number(scores.sprechen) || 0
+    }/25 (cần tối thiểu ${SPEAKING_MIN_FROM_A22}/25) nên bạn vẫn trượt.`;
+  } else if (speakingFailed) {
     reason = `Tổng ${total}/100 nhưng Sprechen chỉ ${
       Number(scores.sprechen) || 0
     }/25 (cần tối thiểu ${SPEAKING_MIN_FROM_A22}/25) nên bạn vẫn trượt.`;
+  } else if (grammarFailed) {
+    const totalText = total >= SKILL_PASS_TOTAL
+      ? `Tổng ${total}/100 đạt ngưỡng ${SKILL_PASS_TOTAL}/100 nhưng`
+      : `Tổng ${total}/100 chưa đạt ngưỡng ${SKILL_PASS_TOTAL}/100 và`;
+    reason = `${totalText} Grammatik chỉ ${grammar.correct}/25 (cần ${GRAMMAR_PASS}/25) nên bạn vẫn trượt.`;
   } else if (total < SKILL_PASS_TOTAL) {
     reason = `Tổng ${total}/100 chưa đạt ngưỡng ${SKILL_PASS_TOTAL}/100.`;
   }

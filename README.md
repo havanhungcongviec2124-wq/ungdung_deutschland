@@ -41,7 +41,7 @@ npm run deploy
 
 Ứng dụng là PWA nên không cần đăng qua App Store hoặc Play Store. Hãy mở ứng dụng bằng Internet ít nhất một lần để cài service worker và tải cache (bao gồm giao diện, mã chạy và dữ liệu OCR). Sau đó có thể mở từ màn hình chính, tạo/sửa/ôn thẻ và nhận diện ảnh mà không cần Wi-Fi hay mạng di động. Thẻ và tiến độ vẫn lưu riêng trong trình duyệt của từng thiết bị, không tự chuyển sang máy người khác. Cập nhật ứng dụng cần kết nối Internet.
 
-Logo dùng chung cho thanh bên, favicon và icon cài đặt được lấy từ `img/logo.png`. Mỗi lần nội dung file logo đổi, bản build tự tạo mã phiên bản mới cho toàn bộ đường dẫn logo/icon. Nút **Cập nhật ứng dụng** sẽ dọn cache cũ, tải lại trang và nhờ đó logo trên web lẫn icon link/install đều đổi theo ngay mà không cần sửa tay hay xóa dữ liệu.
+Logo dùng chung cho thanh bên, favicon và icon cài đặt được lấy từ `img/logo.png`, sau đó tạo ra các icon trong `public/` (và `build/icon.icns` cho bản Mac). Mỗi lần nội dung logo hoặc một trong các icon đó đổi, bản build tự tạo mã phiên bản mới cho toàn bộ đường dẫn logo/icon. Nút **Cập nhật ứng dụng** sẽ dọn cache cũ, tải lại trang và nhờ đó logo trên web lẫn icon link/install đều đổi theo ngay mà không cần sửa tay hay xóa dữ liệu.
 
 ## 5. Tạo ứng dụng Mac tải về
 Trên macOS, chạy `npm run desktop:mac` để tạo bộ cài DMG Intel và Apple Silicon trong thư mục `release/`. Bản Mac lưu dữ liệu riêng trên máy và chạy OCR ngoại tuyến. Chia sẻ thư mục từ ứng dụng Mac sẽ tạo link mở trên website; dữ liệu không tự đồng bộ với bản web. Bản DMG chưa ký/notarize cần tài khoản Apple Developer để phân phối ngoài máy phát triển mà không hiện cảnh báo Gatekeeper.
@@ -111,4 +111,17 @@ Lưu ý:
 - Free tier có giới hạn số yêu cầu/phút và số yêu cầu/ngày; Worker giới hạn 15 yêu cầu/phút mỗi địa chỉ IP. Khi quá tải, ứng dụng sẽ báo bạn đợi một chút.
 - Nội dung câu và từ vựng được gửi tới Google (hoặc Cloudflare Workers AI nếu Gemini bị chặn) để chấm. Đừng dùng chế độ này với dữ liệu riêng tư.
 - Nếu bạn từng dán key vào nơi công khai (ví dụ trò chuyện, screenshot), hãy xóa key đó trong Google AI Studio và tạo key mới.
+
+## 9. Làm bài Test theo trình độ
+Mục **Làm bài Test** trên thanh điều hướng có 6 trình độ A1.1, A1.2, A2.1, A2.2, B1.1 và B1.2. Chọn trình độ là cấu trúc đề tương ứng hiện ngay. Câu hỏi và đoạn Hören/Lesen do AI tạo **biến thể mới từ ngân hàng riêng của từng trình độ** mỗi lần làm (có mã seed riêng, phần nào AI lỗi thì dùng đề ngân hàng). Riêng SMS/E-Mail lấy ngẫu nhiên từ bộ đề của mục **Luyện viết SMS và Thư**, còn Teil 3 lấy từ bộ đề A/B của mục **Thống nhất lịch trình** — kể cả đề bạn tự thêm hoặc chỉnh sửa. Không sao chép đề có bản quyền từ nguồn bên ngoài.
+
+- **A1.1:** Grammatik 25 câu, viết lại câu theo chủ ngữ, đặt câu với 4 thẻ từ ngẫu nhiên và giới thiệu bản thân kèm 3–4 câu hỏi phụ của AI; chưa có Hören/Lesen.
+- **A1.2:** Grammatik 25 câu, 1 SMS hoặc E-Mail ngẫu nhiên, speaking kèm AI, cộng 2 bài luyện bổ trợ (viết lại câu và 4 thẻ từ).
+- **A2.1:** Hören 15 câu, Lesen 15 câu, Schreiben 2 bài, Sprechen theo chủ đề thẻ từ.
+- **Từ A2.2:** Hören **20 câu** (5 đoạn × 4 câu, mỗi câu 3 phương án A/B/C) và Lesen **20 câu** theo 4 Teil: bài đọc thông tin (5 câu), ghép thông tin theo khu vực A/B/C (5 câu), e-mail (5 câu) và ghép 5 quảng cáo A–E (5 câu). Mỗi kỹ năng vẫn chấm trên thang **25 điểm**. Sprechen có 3 Teil, gồm Teil 3 lên kế hoạch chung với phiếu A/B lấy từ mục Thống nhất lịch trình. Nội dung các Teil được AI viết lại từ ngân hàng riêng, không sao chép đề Todaii hay nguồn có bản quyền.
+- **B1.1/B1.2:** cấu trúc Goethe B1 rút gọn, Hören 3 Teil / 20 câu, Lesen 20 câu; B1.2 dùng ngân hàng đề và đề viết/nói khó hơn B1.1.
+
+Quy định chấm: **Grammatik luôn 25 câu trắc nghiệm, đỗ riêng từ 18/25 và không cộng vào tổng 4 kỹ năng.** Từ A2.1, mỗi kỹ năng Hören/Lesen/Schreiben/Sprechen tối đa 25 điểm, tổng /100 và đỗ từ 60/100; từ A2.2 cần thêm **Sprechen tối thiểu 15/25** dù tổng đã đạt. AI chấm bài viết và bài nói (ngữ pháp, từ vựng, chính tả, cấu trúc, hoàn thành nhiệm vụ, giao tiếp; có dữ liệu âm thanh thì mới xét phát âm/độ trôi chảy/phản xạ), trả điểm, đáp án mẫu, câu đã sửa bằng tiếng Đức, lỗi cụ thể và giải thích bằng tiếng Việt. Trang kết quả hiện riêng Grammatik, 4 kỹ năng, tổng điểm, Đỗ/Trượt, kỹ năng yếu, chi tiết lỗi và gợi ý bài học cần ôn tập. Transcript Hören chỉ hiện ở trang kết quả.
+
+Hören dùng giọng đọc `de-DE` có sẵn của trình duyệt, có nút **Nghe lại**. Các yêu cầu AI (sinh đề và chấm bài) được gọi song song theo từng phần; bài tự luận được chấm theo nhóm tối đa 4 item/yêu cầu để phù hợp với giới hạn 15 yêu cầu AI/phút/IP. API key chỉ nằm trong Worker (`GEMINI_API_KEY`), không đưa vào biến `VITE_*`.
 

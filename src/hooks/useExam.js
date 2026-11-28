@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { gradeExamItems, startExamSpeaking } from "../lib/aiExam";
-import { buildExam } from "../lib/examBuilder";
+import { generateExamSection, gradeExamItems, startExamSpeaking } from "../lib/aiExam";
+import { applyGeneratedSections, buildExam, examGenerationSamples } from "../lib/examBuilder";
 import { evaluateExam, countToScore } from "../lib/examLevels";
 
 function itemId(task, suffix) {
@@ -57,12 +57,13 @@ const EMPTY_STATE = {
   answers: {},
 };
 
-export default function useExam(cards = []) {
+export default function useExam(cards = [], sources = {}) {
   const [levelId, setLevelId] = useState("");
   const [exam, setExam] = useState(null);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [state, setState] = useState(EMPTY_STATE);
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
@@ -75,14 +76,35 @@ export default function useExam(cards = []) {
     setResult(null);
   }, []);
 
-  const startExam = useCallback(() => {
+  const startExam = useCallback(async () => {
     if (!levelId) return;
-    setExam(buildExam(levelId, cards));
+    const base = buildExam(levelId, cards, sources);
+    setExam(base);
     setSectionIndex(0);
     setState(EMPTY_STATE);
     setError("");
     setResult(null);
-  }, [levelId, cards]);
+
+    // AI tạo biến thể từ ngân hàng của từng phần; lỗi phần nào thì giữ đề ngân hàng phần đó.
+    const requests = examGenerationSamples(base);
+    if (!requests.length) return;
+    setGenerating(true);
+    const settled = await Promise.allSettled(
+      requests.map((request) =>
+        generateExamSection(levelId, {
+          ...request,
+          seed: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        })
+      )
+    );
+    const generated = settled
+      .filter((entry) => entry.status === "fulfilled" && entry.value)
+      .map((entry) => entry.value);
+    setExam((current) =>
+      current && current.startedAt === base.startedAt ? applyGeneratedSections(current, generated) : current
+    );
+    setGenerating(false);
+  }, [levelId, cards, sources]);
 
   const exitExam = useCallback(() => {
     setExam(null);
@@ -192,6 +214,8 @@ export default function useExam(cards = []) {
           total: section.questions.length,
           score,
           questions: section.questions,
+          clips: section.clips || [],
+          texts: section.texts || [],
         });
       } else {
         const items = collectItems(section, state);
@@ -251,6 +275,7 @@ export default function useExam(cards = []) {
     sectionIndex,
     state,
     busy,
+    generating,
     error,
     result,
     setError,

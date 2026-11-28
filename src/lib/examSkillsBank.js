@@ -1,5 +1,5 @@
-// Ngân hàng Hören/Lesen riêng theo trình độ. Mỗi clip/text có 3 hoặc 5 câu hỏi;
-// khi làm bài sẽ lấy ngẫu nhiên đủ 15 câu cho mỗi kỹ năng.
+// Ngân hàng Hören/Lesen riêng theo trình độ. Mỗi clip có 3 (A2.1) hoặc 4 câu (A2.2+),
+// mỗi text có 5 câu; khi làm bài lấy ngẫu nhiên 15 câu (A2.1) hoặc 20 câu (A2.2+).
 function q(id, text, answer, distractors, explanation) {
   return { id, text, answer, options: [answer, ...distractors], explanation };
 }
@@ -66,6 +66,7 @@ export const LISTENING_BANK = {
         q("a22-l1-q1", "Wohin geht die Reise?", "Nach Wien", ["Nach Berlin", "Nach Rom", "Nach Zürich"], "Cụm Die Reise nach Wien."),
         q("a22-l1-q2", "Wie viel kostet sie?", "249 €", ["2490 €", "239 €", "259 €"], "zweihundertneunundvierzig Euro."),
         q("a22-l1-q3", "Wie lange dauert die Reise?", "Fünf Tage", ["Drei Tage", "Zwölf Tage", "Zwei Wochen"], "Cụm dauert fünf Tage."),
+        q("a22-l1-q4", "An welchem Datum beginnt die Reise?", "Am 12. Juni", ["Am 2. Juni", "Am 20. Juni", "Am 12. Juli"], "Cụm beginnt am zwölften Juni."),
       ],
     },
     {
@@ -76,6 +77,7 @@ export const LISTENING_BANK = {
         q("a22-l2-q1", "Was fällt heute aus?", "Der Deutschkurs", ["Der Zug", "Das Konzert", "Das Treffen"], "Câu đầu thông báo rõ."),
         q("a22-l2-q2", "Wann findet der Kurs statt?", "Nächste Woche Dienstag um 18 Uhr", ["Heute um 18 Uhr", "Morgen um 16 Uhr", "Nächste Woche Montag"], "Có nächste Woche Dienstag um achtzehn Uhr."),
         q("a22-l2-q3", "Wo ist der Kurs?", "Im Raum 204", ["Im Raum 104", "Im Raum 402", "In der Bibliothek"], "Cụm im Raum zwei null vier."),
+        q("a22-l2-q4", "An welchem Wochentag findet der Kurs statt?", "Dienstag", ["Montag", "Mittwoch", "Freitag"], "Cụm nächste Woche Dienstag."),
       ],
     },
     {
@@ -86,6 +88,7 @@ export const LISTENING_BANK = {
         q("a22-l3-q1", "Wie oft soll man die Tablette nehmen?", "Dreimal täglich", ["Einmal täglich", "Zweimal täglich", "Viermal täglich"], "Cụm dreimal täglich."),
         q("a22-l3-q2", "Wann soll man sie nehmen?", "Nach dem Essen", ["Vor dem Essen", "Am Morgen", "Before schlafen"].slice(0, 2).concat("Vor dem Schlafen"), "Cụm nach dem Essen."),
         q("a22-l3-q3", "Was sollte man außerdem tun?", "Viel Wasser trinken", ["Kalt werden", "Nichts essen", "Zu Hause bleiben"], "Cụm viel Wasser trinken."),
+        q("a22-l3-q4", "Wovon handelt die Nachricht?", "Von der Einnahme von Medikamenten", ["Von einer Reise", "Vom Einkaufen", "Vom Wetter"], "Nội dung hướng dẫn uống thuốc và uống nước."),
       ],
     },
     {
@@ -96,6 +99,7 @@ export const LISTENING_BANK = {
         q("a22-l4-q1", "Was kostet die Hose normalerweise?", "39 €", ["29 €", "49 €", "59 €"], "neununddreißig Euro."),
         q("a22-l4-q2", "Wie hoch ist der Rabatt?", "20 Prozent", ["10 Prozent", "30 Prozent", "39 Prozent"], "Cụm zwanzig Prozent Rabatt."),
         q("a22-l4-q3", "Wie kann man zahlen?", "Mit Karte", ["Nur mit Bargeld", "Mit Scheck", "Online"], "Cụm mit Karte zahlen."),
+        q("a22-l4-q4", "Was kostet die Hose heute?", "Etwa 31 Euro", ["39 Euro", "20 Euro", "19 Euro"], "20 % Rabatt auf 39 € ergibt etwa 31,20 €."),
       ],
     },
     {
@@ -106,6 +110,7 @@ export const LISTENING_BANK = {
         q("a22-l5-q1", "Wohin gehen sie zuerst?", "Ins Museum", ["Ins Kino", "Ins Restaurant", "Nach Hause"], "Cụm zuerst ins Museum."),
         q("a22-l5-q2", "Was machen sie danach?", "Sie essen im Restaurant", ["Sie kaufen ein", "Sie schlafen", "Sie fahren weg"], "Cụm danach im Restaurant essen."),
         q("a22-l5-q3", "Wo treffen sie sich um 19 Uhr?", "Am Eingang", ["Am Bahnhof", "Zu Hause", "Im Park"], "Cụm um neunzehn Uhr ... am Eingang."),
+        q("a22-l5-q4", "Was machen sie vor dem Essen?", "Sie gehen ins Museum", ["Sie kaufen ein", "Sie fahren nach Hause", "Sie schlafen"], "Cụm zuerst ins Museum gehen, danach essen."),
       ],
     },
   ],
@@ -118,6 +123,7 @@ export const LISTENING_BANK = {
         q("b11-l1-q1", "Wann findet das Festival statt?", "Im Juli", ["Im Juni", "Im August", "Im Mai"], "Cụm jedes Jahr im Juli."),
         q("b11-l1-q2", "Wie viele Besucher kommen?", "Mehr als 2000", ["Etwa 200", "Genau 1000", "Weniger als 500"], "Cụm mehr als zweitausend Besucher."),
         q("b11-l1-q3", "Wo gibt es das Programm?", "Auf der Website", ["Im Hotel", "Am Bahnhof", "Im Museum"], "Cụm auf der Website verfügbar."),
+        q("b11-l1-q4", "Wie oft findet das Festival statt?", "Jedes Jahr", ["Jeden Monat", "Alle zwei Jahre", "Nur einmal"], "Cụm jedes Jahr im Juli."),
       ],
     },
     {
@@ -128,6 +134,7 @@ export const LISTENING_BANK = {
         q("b11-l2-q1", "Wann hat er angefangen?", "Vor drei Jahren", ["Vor einem Jahr", "Vor fünf Jahren", "Letzte Woche"], "Cụm vor drei Jahren angefangen."),
         q("b11-l2-q2", "Was hat er gelernt?", "Gitarre spielen", ["Klavier spielen", "Schwimmen", "Kochen"], "Cụm Gitarre zu spielen."),
         q("b11-l2-q3", "Wie oft übt er jetzt?", "Jeden Tag eine Stunde", ["Zweimal pro Woche", "Nur am Wochenende", "Einmal im Monat"], "Cụm jeden Tag eine Stunde."),
+        q("b11-l2-q4", "Wie war das Üben am Anfang?", "Schwer", ["Einfach", "Langweilig", "Teuer"], "Cụm Am Anfang war es schwer."),
       ],
     },
     {
@@ -138,6 +145,7 @@ export const LISTENING_BANK = {
         q("b11-l3-q1", "Welche Meinung hat die Person?", "Die Stadt sollte mehr Radwege bauen", ["Es gibt schon genug Radwege", "Alle sollen Auto fahren", "Die Wege sind zu lang"], "Cụm sollte mehr Radwege bauen."),
         q("b11-l3-q2", "Was machen viele Menschen?", "Sie fahren mit dem Auto", ["Sie gehen zu Fuß", "Sie nehmen den Bus", "Sie fahren Rad"], "Cụm fahren mit dem Auto."),
         q("b11-l3-q3", "Was ist trotzdem der Fall?", "Die Wege sind kurz", ["Die Wege sind gefährlich", "Das Wetter ist schlecht", "Die Autos sind neu"], "Cụm obwohl die Wege kurz sind."),
+        q("b11-l3-q4", "Welches Problem wird beschrieben?", "Zu viele Autos auf kurzen Wegen", ["Zu wenige Autos", "Zu lange Wege", "Zu teure Radwege"], "Cụm Viele Menschen fahren mit dem Auto, obwohl die Wege kurz sind."),
       ],
     },
     {
@@ -148,6 +156,7 @@ export const LISTENING_BANK = {
         q("b11-l4-q1", "Was soll man zuerst tun?", "Das Formular ausfüllen", ["Es unterschreiben", "Es abgeben", "Es photocopieren"], "Cụm zuerst füllen ... aus."),
         q("b11-l4-q2", "Was kommt danach?", "Unterschreiben", ["Bezahlen", "Wegwerfen", "Lesen"], "Cụm unterschreiben Sie es."),
         q("b11-l4-q3", "Wann und wo abgeben?", "Bis Freitag im Büro", ["Bis Montag online", "Heute per E-Mail", "Nächste Woche im Park"], "Cụm bis Freitag im Büro ab."),
+        q("b11-l4-q4", "Wie viele Schritte werden genannt?", "Drei", ["Zwei", "Vier", "Fünf"], "Ausfüllen, unterschreiben und abgeben là 3 bước."),
       ],
     },
     {
@@ -158,6 +167,7 @@ export const LISTENING_BANK = {
         q("b11-l5-q1", "Wie lange war die Verspätung?", "20 Minuten", ["10 Minuten", "30 Minuten", "Eine Stunde"], "Cụm zwanzig Minuten Verspätung."),
         q("b11-l5-q2", "Wer wurde informiert?", "Die Reisenden", ["Nur der Zugführer", "Die Nachbarn", "Niemand"], "Câu Die Reisenden wurden informiert."),
         q("b11-l5-q3", "Was bekamen sie?", "Einen Gutschein", ["Ein Ticket", "Geld zurück", "Ein Geschenk"], "Cụm bekamen einen Gutschein."),
+        q("b11-l5-q4", "Wer hatte die Verspätung?", "Der Zug", ["Der Bus", "Das Flugzeug", "Die Reisenden"], "Cụm Der Zug hatte zwanzig Minuten Verspätung."),
       ],
     },
   ],
@@ -170,6 +180,7 @@ export const LISTENING_BANK = {
         q("b12-l1-q1", "Wie war das Projekt geplant?", "Gut", ["Schlecht", "Gar nicht", "Nur teilweise"], "Cụm obwohl das Projekt gut geplant war."),
         q("b12-l1-q2", "Welche Probleme gab es?", "Unerwartete", ["Kleine", "Keine", "Alte"], "Cụm unerwartete Probleme."),
         q("b12-l1-q3", "Was schlug die Teamleiterin vor?", "Den Zeitplan zu ändern", ["Das Projekt zu beenden", "Neue Mitarbeiter einzustellen", "Weniger zu arbeiten"], "Cụm den Zeitplan zu ändern."),
+        q("b12-l1-q4", "Wer schlug die Änderung vor?", "Die Teamleiterin", ["Ein Kunde", "Die Besucherin", "Niemand"], "Cụm Die Teamleiterin schlug vor."),
       ],
     },
     {
@@ -180,6 +191,7 @@ export const LISTENING_BANK = {
         q("b12-l2-q1", "Warum ist die Bibliothek geschlossen?", "Wegen einer Reparatur", ["Wegen eines Festes", "Wegen Ferien", "Wegen eines Umzugs"], "Cụm wegen einer Reparatur."),
         q("b12-l2-q2", "Bis wann bleibt sie geschlossen?", "Bis Montag", ["Bis Freitag", "Bis Sonntag", "Bis nächsten Monat"], "Cụm bis Montag geschlossen."),
         q("b12-l2-q3", "Was ist trotzdem möglich?", "Bücher online bestellen", ["Bücher abholen", "Im Lesesaal arbeiten", "Nichts"], "Câu Bücher können trotzdem online bestellt werden."),
+        q("b12-l2-q4", "Wo kann man Bücher bestellen?", "Online", ["In der Bibliothek", "Im Buchladen", "Per Post"], "Cụm können trotzdem online bestellt werden."),
       ],
     },
     {
@@ -190,6 +202,7 @@ export const LISTENING_BANK = {
         q("b12-l3-q1", "Was ist die Meinung der Person?", "Homeoffice erhöht die Produktivität", ["Homeoffice senkt die Produktivität", "Alle sollen ins Büro", "Arbeit zu Hause ist unmöglich"], "Câu đầu nêu rõ."),
         q("b12-l3-q2", "Was wird als Nachteil genannt?", "Der Austausch fehlt", ["Die Kosten sind höher", "Der Weg ist zu weit", "Die Technik ist schlecht"], "Cụm Allerdings fehlt ... der Austausch."),
         q("b12-l3-q3", "Wem fehlt der Austausch?", "Manchen Kollegen", ["Nur der Leiterin", "Den Kunden", "Niemandem"], "Cụm manchen Kollegen."),
+        q("b12-l3-q4", "Welche Bedingung wird genannt?", "Mehr Zeit zu haben", ["Mehr Geld zu haben", "Urlaub zu haben", "Ein neues Büro zu haben"], "Cụm Wenn ich mehr Zeit hätte."),
       ],
     },
     {
@@ -200,6 +213,7 @@ export const LISTENING_BANK = {
         q("b12-l4-q1", "Was würde die Person tun?", "Einen Sprachkurs besuchen", ["Eine Reise machen", "Kündigen", "Zu Hause bleiben"], "Cụm würde ich einen Sprachkurs besuchen."),
         q("b12-l4-q2", "Warum tut sie es nicht?", "Sie hat keine Zeit", ["Sie hat kein Geld", "Der Kurs ist geschlossen", "Sie wohnt zu weit"], "Câu Wenn ich mehr Zeit hätte ... + leider."),
         q("b12-l4-q3", "Was macht sie nächsten Monat?", "Vollzeit arbeiten", ["Urlaub machen", "Studieren", "Nichts"], "Cụm nächsten Monat Vollzeit."),
+        q("b12-l4-q4", "Welche Voraussetzung fehlt ihr?", "Mehr Zeit", ["Mehr Geld", "Ein Sprachkursangebot", "Ein eigenes Büro"], "Câu Wenn ich mehr Zeit hätte ... và leider arbeite ich Vollzeit."),
       ],
     },
     {
@@ -210,6 +224,7 @@ export const LISTENING_BANK = {
         q("b12-l5-q1", "Wie viele waren zufrieden?", "60 Prozent", ["16 Prozent", "70 Prozent", "50 Prozent"], "Cụm sechzig Prozent ... zufrieden."),
         q("b12-l5-q2", "Wie viele waren unzufrieden?", "10 Prozent", ["60 Prozent", "30 Prozent", "20 Prozent"], "Cụm Nur zehn Prozent unzufrieden."),
         q("b12-l5-q3", "Wie war der Rest?", "Neutral", ["Zufrieden", "Unzufrieden", "Unbekannt"], "Cụm der Rest war neutral."),
+        q("b12-l5-q4", "Wie viele Prozent waren neutral?", "30 Prozent", ["10 Prozent", "60 Prozent", "40 Prozent"], "100 − 60 − 10 = 30 %, đúng với cụm der Rest war neutral."),
       ],
     },
   ],
@@ -291,6 +306,18 @@ export const READING_BANK = {
         q("a22-r3-q5", "Wann fährt er zurück?", "Morgen", ["Heute", "Übermorgen", "Nächste Woche"], "Cụm Morgen fährt er wieder zurück."),
       ],
     },
+    {
+      id: "a22-r4",
+      text:
+        "Liebe Maria, der Deutschkurs am Dienstag fällt leider aus. Er findet jetzt am Donnerstag um 18 Uhr in Raum 205 statt. Bitte bringe dein Buch und einen Stift mit. Wenn du nicht kommen kannst, schreib mir bitte eine E-Mail. Ich freue mich auf dich! Viele Grüße, Anna",
+      questions: [
+        q("a22-r4-q1", "Wann fällt der Kurs aus?", "Am Dienstag", ["Am Donnerstag", "Am Montag", "Am Freitag"], "Cụm am Dienstag fällt leider aus."),
+        q("a22-r4-q2", "Wann ist der Kurs jetzt?", "Am Donnerstag um 18 Uhr", ["Am Dienstag um 18 Uhr", "Am Donnerstag um 16 Uhr", "Am Freitag um 18 Uhr"], "Cụm jetzt am Donnerstag um 18 Uhr."),
+        q("a22-r4-q3", "Wo findet er statt?", "In Raum 205", ["In Raum 204", "In Raum 250", "In der Bibliothek"], "Cụm in Raum 205."),
+        q("a22-r4-q4", "Was soll Maria mitbringen?", "Ein Buch und einen Stift", ["Nur ein Buch", "Einen Laptop und Kaffee", "Nichts"], "Cụm bringe dein Buch und einen Stift mit."),
+        q("a22-r4-q5", "Was soll sie tun, wenn sie nicht kommen kann?", "Eine E-Mail schreiben", ["Anrufen", "Nichts tun", "Jemanden schicken"], "Cụm schreib mir bitte eine E-Mail."),
+      ],
+    },
   ],
   "B1.1": [
     {
@@ -329,6 +356,18 @@ export const READING_BANK = {
         q("b11-r3-q5", "Wie wird das Wetter morgen?", "Sonnig", ["Regnerisch", "Kalt", "Wolkig"], "Cụm wieder sonniges Wetter angekündigt."),
       ],
     },
+    {
+      id: "b11-r4",
+      text:
+        "Die Stadtbibliothek hat ab Montag neue Öffnungszeiten. Von Montag bis Freitag ist sie von 9 bis 19 Uhr geöffnet, am Samstag von 10 bis 16 Uhr. Sonntags bleibt sie geschlossen. Wer einen Bibliotheksausweis hat, kann bis zu sechs Bücher für drei Wochen ausleihen. Die Verlängerung ist online möglich. Für Fragen steht das Personal am Empfang gerne zur Verfügung.",
+      questions: [
+        q("b11-r4-q1", "Wann öffnet die Bibliothek montags?", "Um 9 Uhr", ["Um 8 Uhr", "Um 10 Uhr", "Um 19 Uhr"], "Cụm von 9 bis 19 Uhr."),
+        q("b11-r4-q2", "Wann schließt sie samstags?", "Um 16 Uhr", ["Um 14 Uhr", "Um 18 Uhr", "Um 19 Uhr"], "Cụm samstags von 10 bis 16 Uhr."),
+        q("b11-r4-q3", "An welchem Tag bleibt sie geschlossen?", "Sonntags", ["Montags", "Freitags", "Samstags"], "Cụm Sonntags bleibt sie geschlossen."),
+        q("b11-r4-q4", "Wie viele Bücher darf man maximal ausleihen?", "Sechs", ["Drei", "Vier", "Zehn"], "Cụm bis zu sechs Bücher."),
+        q("b11-r4-q5", "Wo kann man die Ausleihe verlängern?", "Online", ["Am Empfang", "Per Telefon", "Nur vor Ort"], "Cụm Die Verlängerung ist online möglich."),
+      ],
+    },
   ],
   "B1.2": [
     {
@@ -365,6 +404,18 @@ export const READING_BANK = {
         q("b12-r3-q3", "Warum wurde der Ort geändert?", "Die Genehmigung kam spät", ["Das Wetter war schlecht", "Der Park war zu klein", "Es gab keine Mitglieder"], "Cụm Genehmigung wurde erst spät erteilt."),
         q("b12-r3-q4", "Wo findet es jetzt statt?", "Im Schulhof", ["Im Park", "Im Museum", "Am Bahnhof"], "Cụm jetzt im Schulhof statt."),
         q("b12-r3-q5", "Woher kamen die Kosten?", "Aus Spenden", ["Aus Eintrittskarten", "Von der Stadt", "Aus dem Verkauf"], "Cụm durch Spenden gedeckt."),
+      ],
+    },
+    {
+      id: "b12-r4",
+      text:
+        "Immer mehr Menschen arbeiten im Homeoffice. Eine neue Studie zeigt, dass viele Beschäftigte produktiver sind, wenn sie zu Hause arbeiten. Gleichzeitig fehlt ihnen der persönliche Austausch mit Kolleginnen und Kollegen. Unternehmen sollten deshalb regelmäßige Treffen anbieten. Wichtig ist auch eine klare Regelung zur Erreichbarkeit, damit die Arbeit nicht den ganzen Tag andauert. Experten empfehlen außerdem feste Pausen.",
+      questions: [
+        q("b12-r4-q1", "Was zeigt die Studie?", "Viele sind zu Hause produktiver", ["Alle sind weniger produktiv", "Homeoffice ist teurer", "Niemand arbeitet gern zu Hause"], "Câu đầu đoạn nói viele Beschäftigte produktiver sind."),
+        q("b12-r4-q2", "Was fehlt vielen Beschäftigten?", "Der persönliche Austausch", ["Die Technik", "Der Schreibtisch", "Die Ruhe"], "Cụm fehlt ihnen der persönliche Austausch."),
+        q("b12-r4-q3", "Was sollten Unternehmen anbieten?", "Regelmäßige Treffen", ["Nur E-Mails", "Mehr Homeoffice", "Keine Pausen"], "Cụm sollten regelmäßige Treffen anbieten."),
+        q("b12-r4-q4", "Warum ist eine klare Regelung wichtig?", "Damit die Arbeit nicht den ganzen Tag andauert", ["Damit alle länger arbeiten", "Damit niemand Pause macht", "Damit man schneller bezahlt wird"], "Cụm damit die Arbeit nicht den ganzen Tag andauert."),
+        q("b12-r4-q5", "Was empfehlen Experten zusätzlich?", "Feste Pausen", ["Keine Pausen", "Längere Arbeitszeiten", "Nur Wochenendarbeit"], "Cụm Experten empfehlen außerdem feste Pausen."),
       ],
     },
   ],

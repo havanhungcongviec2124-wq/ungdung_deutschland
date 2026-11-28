@@ -40,7 +40,10 @@ export default function App() {
   const speaking = useSpeaking();
   const scheduleSpeaking = useScheduleSpeaking();
   const writing = useWriting();
-  const examFlow = useExam(library.cards);
+  const examFlow = useExam(library.cards, {
+    writingBoards: writing.allBoards,
+    scheduleBoards: scheduleSpeaking.allBoards,
+  });
   const practice = usePracticeProgress();
   const sharing = useSharing({
     library,

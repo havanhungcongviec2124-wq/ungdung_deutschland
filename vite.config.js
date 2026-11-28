@@ -9,11 +9,20 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-// Thay đổi nội dung file logo là mọi URL logo/favicon đổi theo, không cần sửa tay từng lần deploy.
-const appVersion = createHash("sha1")
-  .update(readFileSync(resolve(root, "img/logo.png")))
-  .digest("hex")
-  .slice(0, 10);
+// Đổi nội dung logo hoặc bất kỳ icon nào là mọi URL logo/favicon đổi theo,
+// giúp trình duyệt và PWA tải lại ngay icon mới sau mỗi lần deploy.
+const brandHash = createHash("sha1");
+for (const file of [
+  "img/logo.png",
+  "public/logo.png",
+  "public/icons/icon-192.png",
+  "public/icons/icon-512.png",
+  "public/icons/icon-maskable-512.png",
+  "public/icons/apple-touch-icon.png",
+]) {
+  brandHash.update(readFileSync(resolve(root, file)));
+}
+const appVersion = brandHash.digest("hex").slice(0, 10);
 const ocrAssets = new Map([
   ["/ocr/worker.min.js", resolve(root, "node_modules/tesseract.js/dist/worker.min.js")],
   ["/ocr/tesseract-core-simd-lstm.wasm.js", resolve(root, "node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js")],

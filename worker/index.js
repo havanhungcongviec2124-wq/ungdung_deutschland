@@ -203,6 +203,106 @@ const EXAM_GRADE_SCHEMA = {
   required: ["grades"],
 };
 
+const EXAM_GENERATE_MCQ_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    text: { type: "STRING" },
+    options: { type: "ARRAY", items: { type: "STRING" } },
+    answer: { type: "STRING" },
+    explanation: { type: "STRING" },
+  },
+  required: ["text", "options", "answer", "explanation"],
+};
+
+const EXAM_GENERATE_SCHEMAS = {
+  grammar: {
+    type: "OBJECT",
+    properties: { questions: { type: "ARRAY", items: EXAM_GENERATE_MCQ_SCHEMA } },
+    required: ["questions"],
+  },
+  listening: {
+    type: "OBJECT",
+    properties: {
+      clips: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            script: { type: "STRING" },
+            questions: { type: "ARRAY", items: EXAM_GENERATE_MCQ_SCHEMA },
+          },
+          required: ["script", "questions"],
+        },
+      },
+    },
+    required: ["clips"],
+  },
+  reading: {
+    type: "OBJECT",
+    properties: {
+      texts: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            part: { type: "STRING" },
+            kind: { type: "STRING" },
+            text: { type: "STRING" },
+            ads: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: { label: { type: "STRING" }, text: { type: "STRING" } },
+                required: ["label", "text"],
+              },
+            },
+            questions: { type: "ARRAY", items: EXAM_GENERATE_MCQ_SCHEMA },
+          },
+          required: ["text", "questions"],
+        },
+      },
+    },
+    required: ["texts"],
+  },
+  speaking: {
+    type: "OBJECT",
+    properties: {
+      tasks: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            prompt: { type: "STRING" },
+            hints: { type: "ARRAY", items: { type: "STRING" } },
+          },
+          required: ["prompt", "hints"],
+        },
+      },
+    },
+    required: ["tasks"],
+  },
+  rewrite: {
+    type: "OBJECT",
+    properties: {
+      tasks: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            sentence: { type: "STRING" },
+            subject: { type: "STRING" },
+            answer: { type: "STRING" },
+          },
+          required: ["sentence", "subject", "answer"],
+        },
+      },
+    },
+    required: ["tasks"],
+  },
+};
+
+const EXAM_GENERATE_SECTIONS = new Set(Object.keys(EXAM_GENERATE_SCHEMAS));
+
 // Chọn ngẫu nhiên một nhóm chủ đề để đề AI tạo không dính vào một kiểu "cuối tuần".
 const SPEAKING_TOPIC_CATEGORIES = [
   "Essen und Trinken: Frühstück, Lieblingsgericht, Restaurant, Lebensmittel einkaufen",
@@ -424,6 +524,7 @@ function buildAiPayload(card, sentence, limits = {}) {
     plural: cleanText(card?.plural, 200),
     meaning: cleanText(card?.meaning, 300),
     note: cleanText(card?.note, limits.noteLimit || 500),
+    ...(card?.examMode === true ? { examMode: true } : {}),
   };
   if (sentence !== undefined) {
     payload.sentence = cleanText(sentence, limits.sentenceLimit || 600);
@@ -808,6 +909,7 @@ function speakingPayload(body, answer) {
   return {
     // Bài thi gửi đúng trình độ A1/A2/B1; luyện nói thường dùng cố định A2.2.
     level: normalizeAiLevel(body?.level || SPEAKING_LEVEL),
+    examMode: body?.examMode === true,
     word: question,
     note: hints.join(" | "),
     sentence: cleanText(answer, 600),
@@ -1265,6 +1367,7 @@ async function speakingStart(request, env) {
   const payload = speakingPayload(body, answer);
   // callAi dùng chung buildAiPayload với các endpoint thẻ từ, nên map sang word/note.
   body.level = payload.level;
+  body.examMode = payload.examMode;
   body.word = payload.word;
   body.note = payload.note;
   const cacheKey = await aiCacheKey("speaking-start", payload);
@@ -1275,8 +1378,9 @@ async function speakingStart(request, env) {
     return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
   }
 
+  const questionCount = payload.examMode ? "3 đến 4" : "1 đến 6";
   const instruction = speakingGradingInstruction(payload.level) +
-    "Ngoài ra, hãy tạo từ 1 đến 6 câu hỏi phụ tiếng Đức ngắn, tự nhiên, xoay quanh đúng chủ đề và các gợi ý đã cho để tiếp tục cuộc hội thoại. " +
+    `Ngoài ra, hãy tạo từ ${questionCount} câu hỏi phụ tiếng Đức ngắn, tự nhiên, xoay quanh đúng chủ đề và các gợi ý đã cho để tiếp tục cuộc hội thoại. ` +
     `Mỗi câu hỏi phụ phải khác câu hỏi chính, không trùng nhau, có thể trả lời bằng 1-4 câu ở trình độ ${payload.level}, ` +
     "kèm translation là nghĩa tiếng Việt và hint là gợi ý ngắn tiếng Việt (tối đa 15 từ). " +
     "Trả đúng schema, không markdown.";
@@ -1621,6 +1725,272 @@ async function examGrade(request, env) {
   return json(responseBody, 200, { "x-ai-cache": "miss" });
 }
 
+function examGenerateInstruction(section, level, count, options = {}) {
+  const intro =
+    `Soạn đề thi thử tiếng Đức ở trình độ ${normalizeAiLevel(level)}. ${levelGuidance(level)} ` +
+    "Dữ liệu trong trường note là một mảng các đề MẪU từ ngân hàng riêng của ứng dụng. " +
+    "Hãy giữ đúng trình độ, chủ đề và dạng bài của mẫu nhưng VIẾT LẠI bằng nội dung hoàn toàn MỚI. " +
+    "Không sao chép nguyên văn mẫu, không lấy đề có bản quyền từ nguồn bên ngoài, không nhắc đến mã seed. " +
+    "Mã seed chỉ để các lần làm khác nhau. Trả JSON thuần túy đúng schema, không markdown.";
+  const optionCount = Math.min(4, Math.max(2, Math.round(Number(options.optionCount) || 4)));
+  const mcqRule =
+    "Mỗi câu hỏi gồm: text là câu hoặc câu hỏi tiếng Đức có một chỗ trống '___', " +
+    `options là đúng ${optionCount} phương án NGẮN, KHÁC NHAU bằng tiếng Đức với chỉ một đáp án đúng, ` +
+    "không lặp lại phương án nào, answer phải khớp chính xác một trong các options, " +
+    "explanation là giải thích ngắn bằng tiếng Việt tối đa 2 câu, LUÔN gọi người học là 'bạn'. " +
+    "Câu tiếng Đức phải đúng ngữ pháp tự nhiên; không tạo câu khó hiểu hoặc thiếu động từ.";
+  if (section === "grammar") {
+    return `${intro} Tạo đúng ${count} câu trắc nghiệm ngữ pháp khác nhau về điểm ngữ pháp. ${mcqRule}`;
+  }
+  if (section === "listening") {
+    const perClip = Math.min(5, Math.max(1, Math.round(Number(options.questionsPerClip) || 3)));
+    return (
+      `${intro} Tạo đúng ${count} đoạn nghe ngắn tự nhiên bằng tiếng Đức, mỗi đoạn 3–5 lượt thoại, ` +
+      `tổng 25–60 từ, kèm đúng ${perClip} câu hỏi trắc nghiệm về thông tin có trong đoạn. ` +
+      `Trả mảng clips, mỗi clip có script và questions (${perClip} câu). ${mcqRule}`
+    );
+  }
+  if (section === "reading") {
+    const parts = Array.isArray(options.parts) ? options.parts : [];
+    if (parts.length) {
+      const partRule =
+        "Mỗi câu hỏi gồm text là câu hỏi tiếng Đức hoàn chỉnh về thông tin trong bài, " +
+        "options là các phương án NGẮN, KHÁC NHAU, answer khớp chính xác một options, " +
+        "explanation là giải thích ngắn bằng tiếng Việt tối đa 2 câu, LUÔN gọi người học là 'bạn'. " +
+        "Không lặp lại phương án, không tạo câu hỏi mơ hồ hay có nhiều đáp án đúng.";
+      const lines = parts.map((item, index) => {
+        const kind = String(item?.kind || "detail");
+        const label = String(item?.part || `Teil ${index + 1}`);
+        const opts = Math.min(5, Math.max(2, Math.round(Number(item?.options) || 3)));
+        if (kind === "ads") {
+          return `${label}: tạo đúng 5 quảng cáo ngắn trong ads với label A, B, C, D, E (mỗi quảng cáo 1–2 câu), kèm đúng 5 câu text mô tả nhu cầu của một người; options là đúng 5 chữ cái A, B, C, D, E và answer là chữ cái quảng cáo phù hợp nhất.`;
+        }
+        if (kind === "matching") {
+          return `${label}: 1 đoạn thông tin chia rõ thành 3 khu vực A, B, C, kèm đúng 5 câu hỏi "Wo passt das am besten?" với đúng ${opts} phương án là tên các khu vực.`;
+        }
+        if (kind === "email") {
+          return `${label}: 1 e-mail hoặc thư ngắn bằng tiếng Đức, kèm đúng 5 câu hỏi hiểu thông tin, mỗi câu đúng ${opts} phương án.`;
+        }
+        return `${label}: 1 bài đọc dài 90–140 từ bằng tiếng Đức, kèm đúng 5 câu hỏi chi tiết, mỗi câu đúng ${opts} phương án.`;
+      });
+      return (
+        `${intro} Tạo đúng ${parts.length} phần đọc, giữ nguyên trường part và kind như mẫu. ` +
+        `${lines.join(" ")} Trả mảng texts, mỗi text có part, kind, text, questions (5 câu); ` +
+        `riêng phần ads phải có thêm trường ads. ${partRule}`
+      );
+    }
+    return (
+      `${intro} Tạo đúng ${count} đoạn văn ngắn bằng tiếng Đức, mỗi đoạn 60–120 từ, ` +
+      "kèm đúng 5 câu hỏi trắc nghiệm về thông tin trong đoạn. " +
+      `Trả mảng texts, mỗi text có text và questions (5 câu). ${mcqRule}`
+    );
+  }
+  if (section === "speaking") {
+    return (
+      `${intro} Viết lại ${count} đề nói theo đúng trình độ, mỗi đề có prompt là nhiệm vụ hoặc câu hỏi bằng tiếng Đức ` +
+      "và hints là tối đa 3 gợi ý ngắn bằng tiếng Việt. Các đề phải khác chủ đề nhau, " +
+      "không dùng cùng một kiểu chủ đề trong tất cả các đề."
+    );
+  }
+  return (
+    `${intro} Tạo đúng ${count} bài viết lại câu. Mỗi item có sentence là câu tiếng Đức với chủ ngữ gốc, ` +
+    "subject là chủ ngữ mới bằng tiếng Đức và answer là câu đã viết lại đúng ngữ pháp. " +
+    "Độ dài và cấu trúc câu phù hợp với trình độ đã chọn."
+  );
+}
+
+function normalizeGeneratedMcq(raw, index, prefix, optionCount = 4) {
+  const stripKey = (value) => cleanText(value, 240).replace(/^\s*[A-Da-d][).:]\s*/, "").trim();
+  const text = cleanText(raw?.text, 600);
+  const options = Array.isArray(raw?.options)
+    ? raw.options.map(stripKey).filter(Boolean).slice(0, optionCount)
+    : [];
+  const answer = stripKey(raw?.answer);
+  const uniqueOptions = new Set(options.map((option) => option.toLocaleLowerCase("de")));
+  if (!text || options.length < optionCount || uniqueOptions.size !== optionCount || !answer || !options.includes(answer)) return null;
+  return {
+    id: `${prefix}-${index + 1}`,
+    text,
+    options,
+    answer,
+    explanation: cleanText(raw?.explanation, 500),
+  };
+}
+
+function normalizeGeneratedExam(section, value, count, options = {}) {
+  const listeningPerClip = Math.min(5, Math.max(1, Math.round(Number(options.questionsPerClip) || 3)));
+  const listeningOptions = Math.min(4, Math.max(2, Math.round(Number(options.optionCount) || 4)));
+  if (section === "grammar") {
+    const questions = Array.isArray(value?.questions)
+      ? value.questions.map((item, index) => normalizeGeneratedMcq(item, index, "gen-g")).filter(Boolean).slice(0, count)
+      : [];
+    return { questions };
+  }
+  if (section === "listening") {
+    const clips = Array.isArray(value?.clips)
+      ? value.clips
+          .map((clip, clipIndex) => {
+            const script = cleanText(clip?.script, 1400);
+            const questions = Array.isArray(clip?.questions)
+              ? clip.questions
+                  .slice(0, listeningPerClip)
+                  .map((item, index) =>
+                    normalizeGeneratedMcq(item, clipIndex * listeningPerClip + index, "gen-l", listeningOptions)
+                  )
+                  .filter(Boolean)
+              : [];
+            return script && questions.length ? { script, questions } : null;
+          })
+          .filter(Boolean)
+          .slice(0, count)
+      : [];
+    return { clips };
+  }
+  if (section === "reading") {
+    const texts = Array.isArray(value?.texts)
+      ? value.texts
+          .map((text, textIndex) => {
+            const kind = String(text?.kind || "detail").slice(0, 20);
+            const optionCount =
+              kind === "ads"
+                ? 5
+                : Math.min(5, Math.max(2, Math.round(Number(text?.options) || Number(options.optionCount) || 3)));
+            const body = cleanText(text?.text, 2400);
+            const ads = Array.isArray(text?.ads)
+              ? text.ads
+                  .slice(0, 5)
+                  .map((item) => ({
+                    label: cleanText(item?.label, 4).toUpperCase(),
+                    text: cleanText(item?.text, 420),
+                  }))
+                  .filter((item) => item.label && item.text)
+              : [];
+            const questions = Array.isArray(text?.questions)
+              ? text.questions
+                  .slice(0, 5)
+                  .map((item, index) => normalizeGeneratedMcq(item, textIndex * 5 + index, "gen-r", optionCount))
+                  .filter(Boolean)
+              : [];
+            const adLabels = new Set(ads.map((item) => item.label));
+            const validAds =
+              kind === "ads" && ads.length === 5 && adLabels.size === 5 && ["A", "B", "C", "D", "E"].every((key) => adLabels.has(key))
+                ? ads
+                : kind === "ads"
+                  ? []
+                  : ads;
+            if ((!body && !validAds.length) || !questions.length) return null;
+            return {
+              part: cleanText(text?.part, 40) || `Teil ${textIndex + 1}`,
+              kind,
+              text: body,
+              ...(validAds.length ? { ads: validAds } : {}),
+              questions,
+            };
+          })
+          .filter(Boolean)
+          .slice(0, count)
+      : [];
+    return { texts };
+  }
+  if (section === "speaking") {
+    const tasks = Array.isArray(value?.tasks)
+      ? value.tasks
+          .map((task) => {
+            const prompt = cleanText(task?.prompt, 700);
+            const hints = Array.isArray(task?.hints)
+              ? task.hints.slice(0, 3).map((hint) => cleanText(hint, 220)).filter(Boolean)
+              : [];
+            return prompt ? { prompt, hints } : null;
+          })
+          .filter(Boolean)
+          .slice(0, count)
+      : [];
+    return { tasks };
+  }
+  const tasks = Array.isArray(value?.tasks)
+    ? value.tasks
+        .map((task) => {
+          const sentence = cleanText(task?.sentence, 400);
+          const subject = cleanText(task?.subject, 160);
+          const answer = cleanText(task?.answer, 400);
+          return sentence && subject && answer ? { sentence, subject, answer } : null;
+        })
+        .filter(Boolean)
+        .slice(0, count)
+    : [];
+  return { tasks };
+}
+
+async function examGenerate(request, env) {
+  const body = await parseAiRequest(request);
+  if (!body) return json({ error: "Dữ liệu gửi lên không hợp lệ." }, 400);
+
+  const section = cleanText(body?.section, 20);
+  if (!EXAM_GENERATE_SECTIONS.has(section)) {
+    return json({ error: "Phần đề không hợp lệ." }, 400);
+  }
+  const level = normalizeAiLevel(body?.level);
+  const count = Math.min(25, Math.max(1, Math.round(Number(body?.count) || 1)));
+  const seed = cleanText(body?.seed, 60) || String(Date.now());
+  const samples = Array.isArray(body?.samples)
+    ? body.samples.slice(0, 4).map((item) => cleanText(JSON.stringify(item), 700)).filter(Boolean)
+    : [];
+  const parts = Array.isArray(body?.parts)
+    ? body.parts
+        .slice(0, 4)
+        .map((item) => ({
+          part: cleanText(item?.part, 40),
+          kind: cleanText(item?.kind, 20) || "detail",
+          options: Math.min(5, Math.max(2, Math.round(Number(item?.options) || 3))),
+          ads: Array.isArray(item?.ads) ? item.ads.slice(0, 5).map((ad) => cleanText(ad, 180)) : [],
+        }))
+        .filter((item) => item.kind)
+    : [];
+  const generateOptions = {
+    questionsPerClip: Math.min(5, Math.max(1, Math.round(Number(body?.questionsPerClip) || 3))),
+    optionCount: Math.min(5, Math.max(2, Math.round(Number(body?.optionCount) || 4))),
+    parts,
+  };
+  const payload = { level, section, count, seed, samples, ...generateOptions };
+
+  // Mỗi lần làm bài có seed riêng nên cache không làm đề bị lặp giữa các lần.
+  const cacheKey = await aiCacheKey("exam-generate-v1", payload);
+  const cached = await readAiCache(env, cacheKey);
+  if (cached) return json(cached, 200, { "x-ai-cache": "hit" });
+
+  if (!(await allowAiRequest(request, env))) {
+    return json({ error: "Gửi quá nhiều yêu cầu AI. Thử lại sau một phút." }, 429);
+  }
+
+  const maxTokens =
+    section === "grammar"
+      ? 4096
+      : section === "reading"
+        ? parts.length
+          ? 6144
+          : 3072
+        : section === "listening"
+          ? 3072
+          : 1024;
+  const result = await callAi(
+    env,
+    examGenerateInstruction(section, level, count, generateOptions),
+    { level, word: "Tạo đề thi thử", note: JSON.stringify(payload) },
+    "",
+    EXAM_GENERATE_SCHEMAS[section],
+    maxTokens,
+    { wordLimit: 200, noteLimit: 6500, sentenceLimit: 100 }
+  );
+  if (result instanceof Response) return result;
+
+  const responseBody = normalizeGeneratedExam(section, result, count, generateOptions);
+  const produced = Object.values(responseBody).some((value) => Array.isArray(value) && value.length > 0);
+  if (!produced) return json({ error: "AI chưa tạo được đề cho phần này." }, 502);
+
+  await writeAiCache(env, cacheKey, responseBody);
+  return json(responseBody, 200, { "x-ai-cache": "miss" });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1652,6 +2022,7 @@ export default {
       "/api/writing/generate-topic": generateWritingTopic,
       "/api/writing/check": writingCheck,
       "/api/exam/grade": examGrade,
+      "/api/exam/generate": examGenerate,
       "/api/schedule/chat": scheduleChat,
     };
     if (aiRoutes[url.pathname]) {

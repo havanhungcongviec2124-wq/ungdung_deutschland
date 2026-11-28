@@ -1,5 +1,29 @@
 import { postAi } from "./aiSentence";
 
+// AI tạo biến thể đề từ các đề mẫu của ngân hàng; seed khác nhau mỗi lần làm.
+export async function generateExamSection(level, request) {
+  const section = String(request?.section || "");
+  const count = Math.min(25, Math.max(1, Math.round(Number(request?.count) || 1)));
+  const result = await postAi(
+    "/api/exam/generate",
+    {
+      level,
+      section,
+      count,
+      seed: String(request?.seed || "").slice(0, 60),
+      questionsPerClip: request?.questionsPerClip,
+      optionCount: request?.optionCount,
+      parts: Array.isArray(request?.parts) ? request.parts.slice(0, 4) : [],
+      samples: Array.isArray(request?.samples) ? request.samples.slice(0, 4) : [],
+    },
+    40000
+  );
+  if (!result || typeof result !== "object") {
+    throw new Error("AI trả về đề không hợp lệ.");
+  }
+  return { section, ...result };
+}
+
 // Chấm tối đa 4 bài tự luận trong một yêu cầu để AI phản hồi nhanh và ổn định.
 export async function gradeExamItems(level, items) {
   const payload = (Array.isArray(items) ? items : [])
@@ -32,6 +56,7 @@ export async function startExamSpeaking(level, prompt, hints, answer) {
     question: String(prompt || "").trim(),
     hints: Array.isArray(hints) ? hints.slice(0, 8).map((hint) => String(hint || "").trim()).filter(Boolean) : [],
     answer: value,
+    examMode: true,
   });
   if (!Array.isArray(result?.followUps)) {
     throw new Error("AI chưa tạo được câu hỏi phụ. Hãy thử lại.");

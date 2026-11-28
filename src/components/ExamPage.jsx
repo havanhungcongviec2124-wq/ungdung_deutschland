@@ -41,9 +41,10 @@ function LevelPicker({ flow }) {
           <div className="exam-eyebrow">LÀM BÀI TEST · 6 TRÌNH ĐỘ</div>
           <h1 className="section-title">Chọn trình độ bạn muốn thi thử</h1>
           <p className="exam-lead">
-            Mỗi trình độ có cấu trúc đề riêng, câu hỏi được lấy ngẫu nhiên từ ngân hàng đề.
-            Bạn làm từng phần theo thứ tự, AI chấm các bài viết và bài nói bằng tiếng Việt,
-            còn ngữ pháp, nghe và đọc được chấm ngay trên thiết bị.
+            Mỗi trình độ có cấu trúc đề riêng. AI tạo biến thể câu hỏi và đoạn đề từ ngân hàng của trình độ đó,
+            còn SMS/Email và Teil 3 lấy ngẫu nhiên từ mục Luyện viết và Thống nhất lịch trình.
+            Bạn làm từng phần theo thứ tự, AI chấm bài viết và bài nói bằng tiếng Việt,
+            ngữ pháp, nghe và đọc được chấm ngay trên thiết bị.
           </p>
         </div>
         <div className="exam-rule-card">
@@ -150,40 +151,60 @@ function GrammarView({ section, state, onAnswer }) {
 }
 
 function ListeningView({ section, state, onAnswer, onSpeak }) {
+  let questionStart = 1;
   return (
     <div className="exam-clip-list">
-      {section.clips.map((clip, index) => (
-        <div className="exam-clip" key={clip.id}>
-          <div className="exam-clip-head">
-            <div>
-              <strong>Đoạn {index + 1}</strong>
-              <p className="exam-muted">Nghe bản ghi rồi trả lời 3 câu bên dưới. Transcript chỉ hiện ở trang kết quả.</p>
+      {section.clips.map((clip, index) => {
+        const start = questionStart;
+        questionStart += clip.questions.length;
+        return (
+          <div className="exam-clip" key={clip.id}>
+            <div className="exam-clip-head">
+              <div>
+                <strong>{clip.part || `Đoạn ${index + 1}`}</strong>
+                <p className="exam-muted">Nghe bản ghi rồi trả lời {clip.questions.length} câu bên dưới. Transcript chỉ hiện ở trang kết quả.</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => onSpeak(clip.script)}>
+                <Volume2 size={16} /> Nghe lại
+              </button>
             </div>
-            <button type="button" className="btn-secondary" onClick={() => onSpeak(clip.script)}>
-              <Volume2 size={16} /> Nghe lại
-            </button>
+            <McqList questions={clip.questions} answers={state.answers} onAnswer={onAnswer} start={start} />
           </div>
-          <McqList questions={clip.questions} answers={state.answers} onAnswer={onAnswer} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function ReadingView({ section, state, onAnswer }) {
+  let questionStart = 1;
   return (
     <div className="exam-clip-list">
-      {section.texts.map((text, index) => (
-        <div className="exam-clip" key={text.id}>
-          <div className="exam-clip-head">
-            <strong>Đoạn {index + 1}</strong>
+      {section.texts.map((text, index) => {
+        const start = questionStart;
+        questionStart += text.questions.length;
+        return (
+          <div className="exam-clip" key={text.id}>
+            <div className="exam-clip-head">
+              <strong>{text.part || `Đoạn ${index + 1}`}</strong>
+            </div>
+            <div className="exam-reading-text">
+              <German>{text.text}</German>
+            </div>
+            {Array.isArray(text.ads) && text.ads.length > 0 && (
+              <div className="exam-reading-ads">
+                {text.ads.map((item) => (
+                  <div className="exam-reading-ad" key={item.label}>
+                    <strong className="exam-reading-ad-label">{item.label}</strong>
+                    <German>{item.text}</German>
+                  </div>
+                ))}
+              </div>
+            )}
+            <McqList questions={text.questions} answers={state.answers} onAnswer={onAnswer} start={start} />
           </div>
-          <div className="exam-reading-text">
-            <German>{text.text}</German>
-          </div>
-          <McqList questions={text.questions} answers={state.answers} onAnswer={onAnswer} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -401,13 +422,21 @@ function ExamRunner({ flow, onSpeak }) {
         </div>
 
         {flow.error && <div className="exam-error">{flow.error}</div>}
-
-        {section.type === "grammar" && <GrammarView section={section} state={state} onAnswer={flow.setMcqAnswer} />}
-        {section.type === "listening" && <ListeningView section={section} state={state} onAnswer={flow.setMcqAnswer} onSpeak={onSpeak} />}
-        {section.type === "reading" && <ReadingView section={section} state={state} onAnswer={flow.setMcqAnswer} />}
-        {["writing", "speaking", "rewrite", "cards"].includes(section.type) && (
-          <WrittenView section={section} state={state} flow={flow} onSpeak={onSpeak} />
+        {flow.generating && (
+          <div className="exam-generating">
+            <Sparkles size={16} /> AI đang tạo biến thể đề từ ngân hàng… Vui lòng đợi vài giây trước khi trả lời.
+            Phần nào AI chưa tạo được sẽ dùng đề có sẵn trong ngân hàng.
+          </div>
         )}
+
+        <div className={flow.generating ? "exam-content-locked" : ""}>
+          {section.type === "grammar" && <GrammarView section={section} state={state} onAnswer={flow.setMcqAnswer} />}
+          {section.type === "listening" && <ListeningView section={section} state={state} onAnswer={flow.setMcqAnswer} onSpeak={onSpeak} />}
+          {section.type === "reading" && <ReadingView section={section} state={state} onAnswer={flow.setMcqAnswer} />}
+          {["writing", "speaking", "rewrite", "cards"].includes(section.type) && (
+            <WrittenView section={section} state={state} flow={flow} onSpeak={onSpeak} />
+          )}
+        </div>
 
         <div className="exam-runner-foot">
           {sectionIndex > 0 && (
@@ -419,7 +448,7 @@ function ExamRunner({ flow, onSpeak }) {
               <ArrowLeft size={16} /> Phần trước
             </button>
           )}
-          <button type="button" className="btn-primary" disabled={flow.busy} onClick={handlePrimary}>
+          <button type="button" className="btn-primary" disabled={flow.busy || flow.generating} onClick={handlePrimary}>
             {flow.busy ? "AI đang chấm…" : graded ? (sectionIndex === exam.sections.length - 1 ? "Xem kết quả" : "Tiếp tục") : isMcq ? "Nộp phần này" : "Chấm phần này"}
             {!flow.busy && <ArrowRight size={16} />}
           </button>
@@ -444,7 +473,6 @@ function ExamResult({ flow, actions }) {
   const { evaluation } = result;
   const level = getExamLevel(result.levelId);
   const weak = new Set(evaluation.weakSkills || []);
-  const sectionsById = Object.fromEntries(result.sections.map((section) => [section.type, section]));
 
   const suggestions = [];
   if (!evaluation.grammar.passed) suggestions.push("Ôn lại ngữ pháp theo trình độ đã chọn, làm lại phần Grammatik 25 câu.");
@@ -527,14 +555,6 @@ function ExamResult({ flow, actions }) {
         <h2>Chi tiết lỗi và đáp án mẫu</h2>
         <div className="exam-detail-list">
           {result.sections.map((section) => {
-            if (section.type === "grammar") {
-              return (
-                <div className="exam-detail" key={section.id}>
-                  <h3>Grammatik · {section.correct}/{section.total} câu đúng</h3>
-                  <p className="exam-muted">Xem lại các câu trắc nghiệm bạn chọn sai khi làm lại bài thi.</p>
-                </div>
-              );
-            }
             if (isMcqDetail(section.type)) {
               const wrong = (section.questions || []).filter((question) => result.answers[question.id] !== question.answer);
               return (
@@ -550,6 +570,17 @@ function ExamResult({ flow, actions }) {
                     ))}
                     {wrong.length > 5 && <p className="exam-muted">… và {wrong.length - 5} câu khác.</p>}
                   </div>
+                  {(section.clips || []).length > 0 && (
+                    <div className="exam-transcripts">
+                      <span className="exam-feedback-label">Transcript Hören · chỉ hiện ở trang kết quả</span>
+                      {section.clips.map((clip, index) => (
+                        <details className="exam-transcript" key={clip.id}>
+                          <summary>{clip.part || `Đoạn ${index + 1}`}</summary>
+                          <German>{clip.script}</German>
+                        </details>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -586,7 +617,7 @@ function ExamResult({ flow, actions }) {
 }
 
 function isMcqDetail(type) {
-  return type === "listening" || type === "reading";
+  return type === "grammar" || type === "listening" || type === "reading";
 }
 
 export default function ExamPage({ flow, onSpeak = () => {}, actions }) {
